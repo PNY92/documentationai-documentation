@@ -1,22 +1,47 @@
 ---
-title: Sample Changelog
-description: Sample release notes you can replace with your real updates.
+title: Changelog
+description: Track the development progress and milestones of the SMASH LEGENDS private server project.
 ---
 
-## Sample updates
+## Project status
 
-<Callout kind="alert">
-This changelog is example content. Replace every entry with your real releases.
+The SMASH LEGENDS private server is an active project under development. This changelog tracks major milestones, verified features, and known limitations as the project evolves.
+
+<Update label="Current Build" description="Private Server Backend" tags={["backend", "patcher", "admin"]}>
+
+## Verified
+
+- `local-config.xml` is read by the official client
+- Client reaches the private server
+- Master data is served successfully
+- GamePot/Steam-shaped sign-up is reached
+- JWT authentication and preference loading work
+- Client reaches the lobby
+- Dedicated-server worker binds its UDP port
+- Server loads the `GameBase` scene
+- Patch is reversible and hash-verified
+- Configuration validation and audit logging work
+- Database backup, restore, and migrations exist
+- Admin routes reject non-loopback peers
+
+## Not yet verified
+
+- Complete real match through the headless worker path
+- Reliable two-client gameplay
+- Real 3v3 bot fill
+- Completed match with persisted rewards
+- Second consecutive match proving complete worker/resource cleanup
+
+## Components
+
+- **SmashLegends.Server**: ASP.NET Core HTTP backend (.NET 10), SQLite database with WAL mode, automatic numbered migrations
+- **SmashLegends.Admin**: Interactive terminal console with loopback-only admin API, match worker supervision
+- **SmashLegends.Patcher**: SHA-256 manifest verification, `local-config.xml` installation, reversible IL patch, undo journal
+
+</Update>
+
+<Callout kind="info">
+
+The main blocker for end-to-end match completion is that the worker loads `GameBase` in a way that bypasses the interactive startup ladder responsible for initializing the client's launch configuration. A four-site IL fix was attempted but caused a native crash, so it was not included in the shipped patch.
+
 </Callout>
-
-<Update label="2026-01-26" description="Sample Update" tags={["sample"]}>
-## What changed
-- Cleaned up placeholder copy across the starter kit.
-- Added clearer "sample" messaging to avoid confusion.
-</Update>
-
-<Update label="2025-12-10" description="Sample Update" tags={["sample"]}>
-## What changed
-- Simplified the Quickstart steps.
-- Trimmed Help Center examples.
-</Update>

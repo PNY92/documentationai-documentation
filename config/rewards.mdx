@@ -1,0 +1,78 @@
+---
+title: Rewards Configuration
+description: Configure match rewards, currency, growth EXP, trophies, and item drops for completed SMASH LEGENDS private server matches.
+---
+
+## Rewards configuration
+
+The rewards system grants currency, growth EXP, trophies, and items to players after each match. Rewards are recorded through `match_reward_ledger` and protected against duplicate claims by result ID, so the same match result cannot credit a player more than once.
+
+## Enabling rewards
+
+<ParamField body="rewards.enabled" param-type="boolean" required="false" show-location="false">Whether the rewards system is active. Default: `true`.</ParamField>
+
+## Currency and base rewards
+
+<ParamField body="rewards.currencyItemId" param-type="integer" required="false" show-location="false">Item ID used as currency.</ParamField>
+
+<ParamField body="rewards.base" param-type="integer" required="false" show-location="false">Base currency reward for participation.</ParamField>
+
+<ParamField body="rewards.perCapture" param-type="integer" required="false" show-location="false">Additional currency awarded for each capture event.</ParamField>
+
+<ParamField body="rewards.win" param-type="integer" required="false" show-location="false">Currency awarded for winning. Default: `20`.</ParamField>
+
+<ParamField body="rewards.loss" param-type="integer" required="false" show-location="false">Currency awarded for losing. Default: `5`.</ParamField>
+
+## Item rewards
+
+<ParamField body="rewards.participationItems" param-type="object" required="false" show-location="false">Items granted for participating in a match.</ParamField>
+
+<ParamField body="rewards.winItems" param-type="object" required="false" show-location="false">Items granted for winning a match.</ParamField>
+
+<ParamField body="rewards.lossItems" param-type="object" required="false" show-location="false">Items granted for losing a match.</ParamField>
+
+## Growth EXP
+
+<ParamField body="rewards.participationGrowthExp" param-type="integer" required="false" show-location="false">Growth EXP awarded for participating in a match.</ParamField>
+
+<ParamField body="rewards.winGrowthExp" param-type="integer" required="false" show-location="false">Growth EXP awarded for winning. Default: `100`.</ParamField>
+
+<ParamField body="rewards.lossGrowthExp" param-type="integer" required="false" show-location="false">Growth EXP awarded for losing. Default: `40`.</ParamField>
+
+## Trophies
+
+<ParamField body="rewards.participationTrophy" param-type="integer" required="false" show-location="false">Trophy change applied for participating in a match.</ParamField>
+
+<ParamField body="rewards.winTrophy" param-type="integer" required="false" show-location="false">Trophy change applied for winning. Default: `10`.</ParamField>
+
+<ParamField body="rewards.lossTrophy" param-type="integer" required="false" show-location="false">Trophy change applied for losing. Default: `-5`.</ParamField>
+
+<Callout kind="info">
+
+Trophies can be negative, so losing a match reduces a player's trophy count. The reward ledger ensures that a repeated result submission never credits or deducts rewards a second time.
+
+</Callout>
+
+## Account defaults
+
+New accounts receive a starting roster and inventory. These settings control what new players get.
+
+<ParamField body="accounts.sandboxCharacterIds" param-type="array" required="false" show-location="false">Character IDs available by default. Default: IDs `101-106` and `108-149`.</ParamField>
+
+<ParamField body="accounts.allowedAdditionalCharacterIds" param-type="array" required="false" show-location="false">Additional character IDs that can be unlocked.</ParamField>
+
+<ParamField body="accounts.characterLevel" param-type="integer" required="false" show-location="false">Default character level for new accounts.</ParamField>
+
+<ParamField body="accounts.startingItems" param-type="object" required="false" show-location="false">Items granted to new accounts.</ParamField>
+
+<ParamField body="accounts.defaultNamePrefix" param-type="string" required="false" show-location="false">Prefix used for auto-generated player names.</ParamField>
+
+<ParamField body="accounts.onlineWindowSeconds" param-type="integer" required="false" show-location="false">Time window, in seconds, used to determine whether a player is online.</ParamField>
+
+## Idempotent rewards
+
+<Callout kind="tip">
+
+The server uses the `match_reward_ledger` and `idempotency_keys` tables to prevent duplicate reward claims. If a client resubmits a match result because of a network retry, the server recognizes the duplicate and returns the original reward response without applying it again.
+
+</Callout>

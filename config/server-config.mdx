@@ -1,0 +1,142 @@
+---
+title: Server Configuration
+description: Configure listener addresses, database paths, access control, logging, WebSocket, and SNTP settings for the SMASH LEGENDS private server.
+---
+
+## Configure the server
+
+Configure the SMASH LEGENDS private server through `config/server-config.json`. The admin console exposes the same values using dotted paths such as `match.respawn.seconds`. Configuration changes are validated transactionally. Invalid changes are rejected, and the previous settings remain active.
+
+## Listener and advertised address
+
+<Callout kind="tip">
+
+The `listen` settings control where the HTTP server binds. The `advertised` settings are what clients receive in matchmaking results. For LAN or internet play, set `advertised.address` to a reachable LAN, VPN, or public address instead of `127.0.0.1`.
+
+</Callout>
+
+```json
+{
+  "listen": {
+    "address": "0.0.0.0",
+    "port": 18080
+  },
+  "advertised": {
+    "address": "127.0.0.1",
+    "port": 18080,
+    "scheme": "http"
+  },
+  "stage": "local"
+}
+```
+
+<ParamField body="listen.address" param-type="string" required="false" show-location="false">HTTP bind address. Default: `0.0.0.0`.</ParamField>
+
+<ParamField body="listen.port" param-type="integer" required="false" show-location="false">HTTP port. Default: `18080`.</ParamField>
+
+<ParamField body="advertised.address" param-type="string" required="false" show-location="false">Address clients receive in match allocation. Default: `127.0.0.1`. The address must be reachable by clients for LAN or internet play.</ParamField>
+
+<ParamField body="advertised.port" param-type="integer" required="false" show-location="false">Port clients receive in match allocation. Default: `18080`.</ParamField>
+
+<ParamField body="advertised.scheme" param-type="string" required="false" show-location="false">URL scheme used for the advertised server address. Default: `http`.</ParamField>
+
+<ParamField body="stage" param-type="string" required="false" show-location="false">Stage identifier used in URL normalization. For example, `/local/api/v1/...` maps to `/api/v1/...`.</ParamField>
+
+## Master data
+
+The client expects a binary master-data blob at `data/masterdata/metadata.bin`. The file is extracted from your own game installation and is not committed to the repository.
+
+<ParamField body="masterData.path" param-type="string" required="false" show-location="false">Path to the `metadata.bin` file.</ParamField>
+
+<ParamField body="masterData.category" param-type="string" required="false" show-location="false">Category used when constructing the master-data URL.</ParamField>
+
+<ParamField body="masterData.version" param-type="string" required="false" show-location="false">Version string used when constructing the master-data URL.</ParamField>
+
+<ParamField body="masterData.enabled" param-type="boolean" required="false" show-location="false">Whether the server serves master data.</ParamField>
+
+<ParamField body="masterData.poweredBy" param-type="string" required="false" show-location="false">Value used for the master-data power-by header.</ParamField>
+
+## Asset bundles
+
+<ParamField body="assetBundle.prefix" param-type="string" required="false" show-location="false">URL prefix for asset bundles.</ParamField>
+
+<ParamField body="assetBundle.version" param-type="string" required="false" show-location="false">Version string used for the asset bundle manifest.</ParamField>
+
+The server returns an empty bundle list by default.
+
+## Database
+
+<ParamField body="database.path" param-type="string" required="false" show-location="false">SQLite database file path. Default: `data/smashlegends.db`.</ParamField>
+
+<ParamField body="database.backupDirectory" param-type="string" required="false" show-location="false">Directory for database backups. Default: `data/backups`.</ParamField>
+
+Relative paths are resolved against the configured content root.
+
+## Access control
+
+<Callout kind="alert">
+
+Setting `join.access` to `closed` rejects all authenticated game API traffic. Admin routes remain separately protected by loopback and optional admin token checks.
+
+</Callout>
+
+<ParamField body="join.access" param-type="string" required="false" enum="open,invite,closed" show-location="false">Controls access to the server. Default: `open`. Use `invite` to require the configured join password or `closed` to reject authenticated game API traffic.</ParamField>
+
+<ParamField body="join.password" param-type="string" required="false" show-location="false">Password for invite-mode access.</ParamField>
+
+<ParamField body="join.allowLan" param-type="boolean" required="false" show-location="false">Whether to allow LAN connections.</ParamField>
+
+<ParamField body="join.allowedAddresses" param-type="array" required="false" show-location="false">Explicitly allowed client addresses.</ParamField>
+
+<ParamField body="join.adminToken" param-type="string" required="false" show-location="false">Optional token for admin API access. Send the token in the `x-admin-token` header or through the `token` query parameter.</ParamField>
+
+<ParamField body="join.ignorableClientErrors" param-type="array" required="false" show-location="false">List of client error codes to suppress.</ParamField>
+
+## Logging
+
+<ParamField body="logging.directory" param-type="string" required="false" show-location="false">Log output directory. Default: `_work/logs/server`.</ParamField>
+
+<ParamField body="logging.requestLog" param-type="boolean" required="false" show-location="false">Whether to enable request logging.</ParamField>
+
+<ParamField body="logging.requestLogFile" param-type="string" required="false" show-location="false">Request log file path relative to the logging directory. Default: `requests.jsonl`.</ParamField>
+
+<ParamField body="logging.auditLog" param-type="boolean" required="false" show-location="false">Whether to enable the admin audit log.</ParamField>
+
+<ParamField body="logging.console" param-type="boolean" required="false" show-location="false">Whether to enable console logging.</ParamField>
+
+<ParamField body="logging.unmappedRoutePolicy" param-type="string" required="false" enum="not-found,empty-200" show-location="false">Response policy for unmapped routes. `not-found` returns `404` and is the default. `empty-200` returns an empty successful response.</ParamField>
+
+<Callout kind="info">
+
+The default unmapped-route policy is `404` because the client treats unexpected 404 responses as hard failures. Use `empty-200` only for diagnostics or compatibility testing.
+
+</Callout>
+
+Key log files include:
+
+- `_work/logs/server/requests.jsonl`: Request log.
+- `_work/logs/server/admin-audit.jsonl`: Admin audit trail.
+- `_work/logs/server/server-YYYYMMDD.jsonl`: Daily server log.
+- `_work/logs/match-workers/*.log`: Per-match worker logs.
+
+## Out-game WebSocket
+
+<ParamField body="outgameWebSocket.enabled" param-type="boolean" required="false" show-location="false">Whether to enable the WebSocket listener. Default: `true`.</ParamField>
+
+<ParamField body="outgameWebSocket.address" param-type="string" required="false" show-location="false">WebSocket bind address. Default: `0.0.0.0`.</ParamField>
+
+<ParamField body="outgameWebSocket.port" param-type="integer" required="false" show-location="false">WebSocket port. Default: `18081`.</ParamField>
+
+<Callout kind="info">
+
+The listener accepts connections and logs query strings and frames, but the full proprietary frame protocol was not recovered. It intentionally does not send application replies.
+
+</Callout>
+
+## SNTP
+
+<ParamField body="sntp.enabled" param-type="boolean" required="false" show-location="false">Whether to enable the SNTP server. Default: `false`.</ParamField>
+
+<ParamField body="sntp.address" param-type="string" required="false" show-location="false">SNTP bind address. Default: `127.0.0.1`.</ParamField>
+
+<ParamField body="sntp.port" param-type="integer" required="false" show-location="false">SNTP port. Default: `123`.</ParamField>

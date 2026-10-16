@@ -1,192 +1,1596 @@
 openapi: '3.0.0'
 info:
   version: 1.0.0
-  title: Sample API
+  title: SMASH LEGENDS Private Server API
   description: >
-    This is a sample OpenAPI file included with the starter kit.
-
-    Replace this entire file with your own OpenAPI specification that fully
-    describes your API, including your endpoints, schemas, authentication,
-    and error handling. Use this sample only as a structural reference, not
-    as a starting point for a production API definition.
+    HTTP API for the SMASH LEGENDS private server. Handles authentication,
+    profiles, matchmaking, lobby management, and admin operations.
   license:
     name: MIT
 servers:
-  - url: https://api.example.com/v1
+  - url: http://localhost:18080
+    description: Local private server
+tags:
+  - name: Bootstrap
+    description: Health, master data, feature flags, and assets
+  - name: Account & Profile
+    description: Sign-up, sign-in, profiles, and preferences
+  - name: Matchmaking
+    description: Matchmaking tickets, allocation, and session connections
+  - name: Lobby & Bands
+    description: Room management, member state, and band matches
+  - name: Tutorial
+    description: Tutorial lists and reward claims
+  - name: Admin
+    description: Server management endpoints restricted to loopback clients
+  - name: System
+    description: Match results and rewards
 paths:
-  /projects:
+  /health:
     get:
-      summary: List all projects
-      operationId: listProjects
-      parameters:
-        - name: limit
-          in: query
-          description: How many items to return at one time (max 100)
-          required: false
-          schema:
-            type: integer
-            format: int32
+      tags:
+        - Bootstrap
+      summary: Get server health
+      description: Returns server time, stage, schema version, uptime, and health status.
+      operationId: getHealth
+      security: []
       responses:
-        200:
-          description: An paged array of projects
-          headers:
-            x-next:
-              description: A link to the next page of responses
+        '200':
+          description: Server health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /master/{category}/{version}/metadata.bin:
+    get:
+      tags:
+        - Bootstrap
+      summary: Get master data
+      description: Returns binary master data for the requested category and version.
+      operationId: getMasterMetadata
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Category'
+        - $ref: '#/components/parameters/Version'
+      responses:
+        '200':
+          description: Binary master data
+          content:
+            application/octet-stream:
               schema:
                 type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Projects'
+                format: binary
         default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/DefaultError'
+  /evaluation/batch:
     post:
-      summary: Create project
-      operationId: createProjects
-      responses:
-        201:
-          description: Null response
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /projects/{projectId}:
-    get:
-      summary: Get project info
-      operationId: showProjectById
-      parameters:
-        - name: projectId
-          in: path
-          required: true
-          description: The id of the project to retrieve
-          schema:
-            type: string
-      responses:
-        200:
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Projects'
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /documents:
-    get:
-      summary: List all documents
-      operationId: listDocuments
-      parameters:
-        - name: limit
-          in: query
-          description: How many items to return at one time (max 100)
-          required: false
-          schema:
-            type: integer
-            format: int32
-      responses:
-        200:
-          description: An paged array of documents
-          headers:
-            x-next:
-              description: A link to the next page of responses
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Documents'
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-    post:
-      summary: Create document
-      operationId: createDocuments
-      responses:
-        201:
-          description: Null response
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /documents/{docId}:
-    get:
-      summary: Get document info
-      operationId: showDocumentById
-      parameters:
-        - name: docId
-          in: path
-          required: true
-          description: The id of the document to retrieve
-          schema:
-            type: string
-      responses:
-        200:
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Documents'
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-components:
-  schemas:
-    Project:
-      required:
-        - id
-        - name
-      properties:
-        id:
-          type: integer
-          format: int64
-        name:
-          type: string
-        description:
-          type: string
-    Projects:
-      type: array
-      items:
-        $ref: '#/components/schemas/Project'
-    Document:
-      required:
-        - id
-        - title
-      properties:
-        id:
-          type: integer
-          format: int64
-        title:
-          type: string
+      tags:
+        - Bootstrap
+      summary: Evaluate feature flags in batch
+      description: Evaluates multiple feature flags for a client context.
+      operationId: evaluateFeatureFlagsBatch
+      security: []
+      requestBody:
+        required: true
         content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Feature flag evaluation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /evaluation:
+    post:
+      tags:
+        - Bootstrap
+      summary: Evaluate a feature flag
+      description: Evaluates a single feature flag for a client context.
+      operationId: evaluateFeatureFlag
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Feature flag evaluation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /asset/{version}/{platform}/version.json:
+    get:
+      tags:
+        - Bootstrap
+      summary: Get asset bundle manifest
+      description: Returns the asset bundle manifest for a version and platform.
+      operationId: getAssetManifest
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Version'
+        - $ref: '#/components/parameters/Platform'
+      responses:
+        '200':
+          description: Asset bundle manifest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api_public/v1/resource/version:
+    get:
+      tags:
+        - Bootstrap
+      summary: Get resource version
+      description: Returns the current public resource version.
+      operationId: getResourceVersion
+      security: []
+      responses:
+        '200':
+          description: Resource version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api_public/v1/account/sign_up/gamepot:
+    post:
+      tags:
+        - Account & Profile
+      summary: Sign up with GamePot
+      description: Creates an account using GamePot provider credentials.
+      operationId: signUpWithGamePot
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api_public/v1/account/sign_in/gamepot:
+    post:
+      tags:
+        - Account & Profile
+      summary: Sign in with GamePot
+      description: Authenticates an account using GamePot provider credentials.
+      operationId: signInWithGamePot
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Authentication result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api_public/v1/account/sign_up/steam:
+    post:
+      tags:
+        - Account & Profile
+      summary: Sign up with Steam
+      description: Creates an account using Steam credentials.
+      operationId: signUpWithSteam
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api_public/v1/account/sign_in/steam:
+    post:
+      tags:
+        - Account & Profile
+      summary: Sign in with Steam
+      description: Authenticates an account using Steam credentials.
+      operationId: signInWithSteam
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Authentication result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api_public/v1/account/sign_up/dev:
+    post:
+      tags:
+        - Account & Profile
+      summary: Sign up with dev provider
+      description: Creates a development account using development credentials.
+      operationId: signUpWithDev
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api_public/v1/account/sign_in/dev:
+    post:
+      tags:
+        - Account & Profile
+      summary: Sign in with dev provider
+      description: Authenticates a development account.
+      operationId: signInWithDev
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Authentication result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/me/initial/full:
+    get:
+      tags:
+        - Account & Profile
+      summary: Get full profile
+      description: Returns the authenticated user's complete initial profile data.
+      operationId: getFullProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Full profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/me/battle:
+    get:
+      tags:
+        - Account & Profile
+      summary: Get battle profile
+      description: Returns battle-related profile information for the authenticated user.
+      operationId: getBattleProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Battle profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/me/shop:
+    post:
+      tags:
+        - Account & Profile
+      summary: Submit shop request
+      description: Processes a shop request for the authenticated user.
+      operationId: submitShopRequest
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Shop request result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/preference:
+    get:
+      tags:
+        - Account & Profile
+      summary: Get preferences
+      description: Returns preferences for the authenticated user.
+      operationId: getPreferences
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+    post:
+      tags:
+        - Account & Profile
+      summary: Set preferences
+      description: Updates preferences for the authenticated user.
+      operationId: setPreferences
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/character/list:
+    get:
+      tags:
+        - Account & Profile
+      summary: List characters
+      description: Returns characters owned by the authenticated user.
+      operationId: listCharacters
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Character list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/inventory/initial:
+    get:
+      tags:
+        - Account & Profile
+      summary: Get initial inventory
+      description: Returns the authenticated user's initial inventory data.
+      operationId: getInitialInventory
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Initial inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/equipment/list:
+    get:
+      tags:
+        - Account & Profile
+      summary: List equipment
+      description: Returns equipment owned by the authenticated user.
+      operationId: listEquipment
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Equipment list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/battle_log/list:
+    get:
+      tags:
+        - Account & Profile
+      summary: List battle log
+      description: Returns battle history for the authenticated user.
+      operationId: listBattleLog
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Battle log
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/user/update:
+    post:
+      tags:
+        - Account & Profile
+      summary: Update user information
+      description: Updates information for the authenticated user.
+      operationId: updateUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Updated user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/user/leave:
+    post:
+      tags:
+        - Account & Profile
+      summary: Delete account
+      description: Deletes or deactivates the authenticated user's account.
+      operationId: deleteAccount
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Account deletion result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/ticket/start:
+    post:
+      tags:
+        - Matchmaking
+      summary: Start matchmaking ticket
+      description: Starts a matchmaking ticket for the authenticated player.
+      operationId: startMatchmakingTicket
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Matchmaking ticket
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/ticket/stop:
+    post:
+      tags:
+        - Matchmaking
+      summary: Stop matchmaking ticket
+      description: Stops the authenticated player's active matchmaking ticket.
+      operationId: stopMatchmakingTicket
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Ticket cancellation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/ticket/describe:
+    get:
+      tags:
+        - Matchmaking
+      summary: Get ticket status
+      description: Returns the authenticated player's current matchmaking ticket status.
+      operationId: describeMatchmakingTicket
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Matchmaking ticket status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/allocation/describe:
+    get:
+      tags:
+        - Matchmaking
+      summary: Get allocation status
+      description: Returns allocation status for the authenticated player.
+      operationId: describeAllocation
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Allocation status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/session/connection:
+    get:
+      tags:
+        - Matchmaking
+      summary: Get session connection information
+      description: Returns connection details for the allocated game session.
+      operationId: getSessionConnection
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Session connection information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/player/update_latency:
+    post:
+      tags:
+        - Matchmaking
+      summary: Update player latency
+      description: Updates the authenticated player's reported network latency.
+      operationId: updatePlayerLatency
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Latency update result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/practice/allocate:
+    post:
+      tags:
+        - Matchmaking
+      summary: Allocate practice match
+      description: Allocates a practice match for the authenticated player.
+      operationId: allocatePracticeMatch
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Practice match allocation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/competitive/allocate:
+    post:
+      tags:
+        - Matchmaking
+      summary: Allocate competitive match
+      description: Allocates a competitive match for the authenticated player.
+      operationId: allocateCompetitiveMatch
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Competitive match allocation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/band_room/create:
+    post:
+      tags:
+        - Lobby & Bands
+      summary: Create a band room
+      description: Creates a band room for the authenticated player.
+      operationId: createBandRoom
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Created band room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/band_room/join:
+    post:
+      tags:
+        - Lobby & Bands
+      summary: Join a band room
+      description: Joins the authenticated player to a band room.
+      operationId: joinBandRoom
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Joined band room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/band_room/leave:
+    post:
+      tags:
+        - Lobby & Bands
+      summary: Leave a band room
+      description: Removes the authenticated player from the current band room.
+      operationId: leaveBandRoom
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Band room leave result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/band_room/kick:
+    post:
+      tags:
+        - Lobby & Bands
+      summary: Kick a band member
+      description: Removes a member from the current band room.
+      operationId: kickBandMember
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Member kick result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/band_member/character:
+    post:
+      tags:
+        - Lobby & Bands
+      summary: Set member character
+      description: Sets the character selected by a band member.
+      operationId: setBandMemberCharacter
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Character selection result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/band_member/ready:
+    post:
+      tags:
+        - Lobby & Bands
+      summary: Set member ready state
+      description: Sets the authenticated band member's ready state.
+      operationId: setBandMemberReady
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Ready state result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/band_match/start:
+    post:
+      tags:
+        - Lobby & Bands
+      summary: Start band match
+      description: Starts a match for the current band.
+      operationId: startBandMatch
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Band match start result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/band_match/stop:
+    post:
+      tags:
+        - Lobby & Bands
+      summary: Stop band match
+      description: Stops the current band match.
+      operationId: stopBandMatch
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Band match stop result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/band/current:
+    get:
+      tags:
+        - Lobby & Bands
+      summary: Get current band
+      description: Returns the current band and member state for the authenticated player.
+      operationId: getCurrentBand
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current band
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/band_chat/send_text:
+    post:
+      tags:
+        - Lobby & Bands
+      summary: Send band chat text
+      description: Sends a text message to the current band.
+      operationId: sendBandChatText
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Chat message result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/tutorial/list:
+    get:
+      tags:
+        - Tutorial
+      summary: Get tutorial list
+      description: Returns tutorials available to the authenticated player.
+      operationId: getTutorialList
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Tutorial list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/tutorial/battle_claim:
+    post:
+      tags:
+        - Tutorial
+      summary: Claim tutorial battle reward
+      description: Claims the reward for a completed tutorial battle.
+      operationId: claimTutorialBattleReward
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Tutorial battle reward
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/tutorial/mission_claim:
+    post:
+      tags:
+        - Tutorial
+      summary: Claim tutorial mission reward
+      description: Claims the reward for a completed tutorial mission.
+      operationId: claimTutorialMissionReward
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Tutorial mission reward
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /system/game_session/v1/battle/start:
+    post:
+      tags:
+        - System
+      summary: Report battle start
+      description: Reports the start of a game session battle.
+      operationId: reportBattleStart
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Battle start result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /system/game_session/v1/battle/finish:
+    post:
+      tags:
+        - System
+      summary: Report battle finish
+      description: Reports the result and completion of a game session battle.
+      operationId: reportBattleFinish
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Battle result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchResult'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /api/v1/mediator/battle_claim:
+    post:
+      tags:
+        - System
+      summary: Claim battle rewards
+      description: Claims rewards earned from a completed battle.
+      operationId: claimBattleRewards
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Battle rewards
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchResult'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/status:
+    get:
+      tags:
+        - Admin
+      summary: Get server status
+      description: Returns server status. This endpoint is restricted to loopback clients.
+      operationId: getAdminStatus
+      security: []
+      responses:
+        '200':
+          description: Server status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/players:
+    get:
+      tags:
+        - Admin
+      summary: List players
+      description: Lists connected or registered players. This endpoint is restricted to loopback clients.
+      operationId: listAdminPlayers
+      security: []
+      responses:
+        '200':
+          description: Player list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/matches:
+    get:
+      tags:
+        - Admin
+      summary: List matches
+      description: Lists active and recent matches. This endpoint is restricted to loopback clients.
+      operationId: listAdminMatches
+      security: []
+      responses:
+        '200':
+          description: Match list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/config:
+    get:
+      tags:
+        - Admin
+      summary: Get configuration
+      description: Returns server configuration. This endpoint is restricted to loopback clients.
+      operationId: getAdminConfig
+      security: []
+      responses:
+        '200':
+          description: Server configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/config/set:
+    post:
+      tags:
+        - Admin
+      summary: Set configuration value
+      description: Sets a server configuration value. This endpoint is restricted to loopback clients.
+      operationId: setAdminConfig
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Configuration update result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/config/reload:
+    post:
+      tags:
+        - Admin
+      summary: Reload configuration
+      description: Reloads server configuration. This endpoint is restricted to loopback clients.
+      operationId: reloadAdminConfig
+      security: []
+      responses:
+        '200':
+          description: Configuration reload result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/account/create:
+    post:
+      tags:
+        - Admin
+      summary: Create account
+      description: Creates an account administratively. This endpoint is restricted to loopback clients.
+      operationId: createAdminAccount
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Account creation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/account/kick:
+    post:
+      tags:
+        - Admin
+      summary: Kick player
+      description: Disconnects a player. This endpoint is restricted to loopback clients.
+      operationId: kickAdminAccount
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Kick result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/account/ban:
+    post:
+      tags:
+        - Admin
+      summary: Ban account
+      description: Bans an account. This endpoint is restricted to loopback clients.
+      operationId: banAdminAccount
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Ban result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/account/unban:
+    post:
+      tags:
+        - Admin
+      summary: Unban account
+      description: Removes an account ban. This endpoint is restricted to loopback clients.
+      operationId: unbanAdminAccount
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Unban result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/player/unlock:
+    post:
+      tags:
+        - Admin
+      summary: Unlock character
+      description: Unlocks a character for a player. This endpoint is restricted to loopback clients.
+      operationId: unlockAdminPlayerCharacter
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Character unlock result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/player/level:
+    post:
+      tags:
+        - Admin
+      summary: Set player level
+      description: Sets a player's level. This endpoint is restricted to loopback clients.
+      operationId: setAdminPlayerLevel
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Player level update result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/player/currency:
+    post:
+      tags:
+        - Admin
+      summary: Set player currency
+      description: Sets a player's currency balance. This endpoint is restricted to loopback clients.
+      operationId: setAdminPlayerCurrency
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Currency update result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/match/start:
+    post:
+      tags:
+        - Admin
+      summary: Start match
+      description: Starts a match administratively. This endpoint is restricted to loopback clients.
+      operationId: startAdminMatch
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Match start result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/match/stop:
+    post:
+      tags:
+        - Admin
+      summary: Stop match
+      description: Stops a match administratively. This endpoint is restricted to loopback clients.
+      operationId: stopAdminMatch
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Match stop result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/backup:
+    post:
+      tags:
+        - Admin
+      summary: Create database backup
+      description: Creates a database backup. This endpoint is restricted to loopback clients.
+      operationId: createAdminBackup
+      security: []
+      responses:
+        '200':
+          description: Backup result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/restore:
+    post:
+      tags:
+        - Admin
+      summary: Restore database backup
+      description: Restores a database backup. This endpoint is restricted to loopback clients.
+      operationId: restoreAdminBackup
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenericRequest'
+      responses:
+        '200':
+          description: Restore result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+  /admin/shutdown:
+    post:
+      tags:
+        - Admin
+      summary: Shut down server
+      description: Shuts down the private server. This endpoint is restricted to loopback clients.
+      operationId: shutdownAdminServer
+      security: []
+      responses:
+        '200':
+          description: Shutdown result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericResponse'
+        default:
+          $ref: '#/components/responses/DefaultError'
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: JWT Bearer token
+  parameters:
+    Category:
+      name: category
+      in: path
+      required: true
+      description: Master data category.
+      schema:
+        type: string
+    Version:
+      name: version
+      in: path
+      required: true
+      description: Resource or asset version.
+      schema:
+        type: string
+    Platform:
+      name: platform
+      in: path
+      required: true
+      description: Client platform.
+      schema:
+        type: string
+  responses:
+    DefaultError:
+      description: Unexpected error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - serverTime
+        - stage
+        - schemaVersion
+        - uptime
+        - ok
+      properties:
+        serverTime:
           type: string
-    Documents:
-      type: array
-      items:
-        $ref: '#/components/schemas/Document'
-    Error:
+          description: Current server time.
+          example: '2024-01-01T00:00:00Z'
+        stage:
+          type: string
+          description: Deployment stage.
+          example: local
+        schemaVersion:
+          type: integer
+          description: API schema version.
+          example: 1
+        uptime:
+          type: string
+          description: Server uptime.
+          example: 2h15m30s
+        ok:
+          type: boolean
+          description: Whether the server is healthy.
+          example: true
+    SignInRequest:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Provider account identifier.
+          example: player-123
+        provider:
+          type: string
+          description: Authentication provider.
+          example: gamepot
+        gamepotToken:
+          type: string
+          description: GamePot provider token.
+        steamId:
+          type: string
+          description: Steam account identifier.
+        devId:
+          type: string
+          description: Development account identifier.
+        nickname:
+          type: string
+          description: Optional requested nickname.
+    SignInResponse:
+      type: object
+      required:
+        - token
+        - accountId
+        - whiteNid
+      properties:
+        token:
+          type: string
+          description: JWT access token.
+          example: eyJhbGciOiJIUzI1NiJ9.example
+        accountId:
+          type: string
+          description: Account identifier.
+          example: account-123
+        whiteNid:
+          type: boolean
+          description: Whether the account is allowlisted.
+          example: false
+    TicketResponse:
+      type: object
+      required:
+        - ticketId
+        - state
+      properties:
+        ticketId:
+          type: string
+          description: Matchmaking ticket identifier.
+          example: ticket-123
+        state:
+          type: string
+          description: Current matchmaking state.
+          enum:
+            - queued
+            - searching
+            - matching
+            - placing
+            - activating
+            - completed
+            - failed
+            - timedout
+            - cancelled
+          example: searching
+        ipAddress:
+          type: string
+          description: Allocated match server IP address.
+          example: 127.0.0.1
+        port:
+          type: integer
+          description: Allocated match server port.
+          example: 19000
+    MatchResult:
+      type: object
+      required:
+        - matchId
+        - result
+        - rewards
+      properties:
+        matchId:
+          type: string
+          description: Match identifier.
+          example: match-123
+        result:
+          type: string
+          description: Match result.
+          example: victory
+        rewards:
+          type: object
+          description: Rewards granted for the match.
+          additionalProperties: true
+    ErrorResponse:
+      type: object
       required:
         - code
         - message
       properties:
         code:
           type: integer
-          format: int32
+          description: Application error code.
+          example: 400
         message:
           type: string
+          description: Human-readable error message.
+          example: Invalid request
+    GenericRequest:
+      type: object
+      description: Flexible request payload for endpoint-specific fields.
+      additionalProperties: true
+    GenericResponse:
+      type: object
+      description: Flexible response payload for endpoint-specific data.
+      additionalProperties: true

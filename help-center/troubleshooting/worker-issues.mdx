@@ -1,0 +1,100 @@
+---
+title: Worker Issues
+description: Diagnose and fix match worker problems: UDP bind failures, worker crashes, stale processes, and scene loading issues.
+---
+
+## Diagnose match worker problems
+
+Match worker issues prevent the private server from launching and completing matches. The worker supervisor launches the official game executable headlessly as a dedicated-server process. Use the diagnostic steps below to identify and resolve common worker problems.
+
+<ExpandableGroup>
+<Expandable title="Worker fails to bind UDP port">
+
+The worker supervisor assigns UDP ports from the configured range, which defaults to `30000` through `30010`. If another process already uses the assigned port, the worker cannot bind and the match cannot start.
+
+Check for processes using the worker port range:
+
+```powershell
+netstat -ano | findstr :3000
+```
+
+- Terminate leftover worker processes.
+- Verify that `worker.portMin` and `worker.portMax` are not used by another application.
+- Increase the configured port range if you need to run more concurrent matches.
+
+</Expandable>
+
+<Expandable title="Worker crashes on startup">
+
+Check the worker log files in `_work/logs/match-workers/` for the startup error. The supervisor writes a separate log for each match worker.
+
+Check these common causes:
+
+- **Incorrect executable path:** Verify `worker.processPath` and `worker.installDirectory`.
+- **Unsupported game build:** Re-verify the installation with `verify-boot-contract.ps1`.
+- **Missing IL patch:** Run `apply-dedicated-server-patch.ps1` if the patch was not applied or was reverted.
+- **Corrupted game files:** Verify the game files through Steam.
+
+</Expandable>
+
+<Expandable title="Worker loads GameBase but match does not start">
+
+<Callout kind="alert">
+
+This is the current main blocker. The worker loads the `GameBase` scene, but the scene transition bypasses the interactive startup ladder responsible for initializing the client's launch configuration. The worker reaches the scene but does not complete the full match initialization sequence.
+
+This is a known limitation, not a configuration issue. A four-site IL fix was attempted to address it but caused a native crash, so it was not included in the shipped patch.
+
+</Callout>
+
+</Expandable>
+
+<Expandable title="Stale or orphaned worker processes">
+
+The supervisor tracks each worker by process ID. If a worker becomes orphaned after a server crash, the supervisor performs the following cleanup when it restarts:
+
+- Reconciles active matches.
+- Detects and terminates stale workers.
+- Releases match resources.
+
+To manually clean up orphaned workers, run:
+
+```powershell
+Get-Process -Name "Smash_Legends" -ErrorAction SilentlyContinue | Stop-Process -Force
+```
+
+</Expandable>
+
+<Expandable title="Worker logs show no client connection">
+
+If the worker starts but no client connects, check the advertised address and the allocated connection details.
+
+- Verify that `advertised.address` in `server-config.json` matches an address reachable by the client.
+- Confirm that the client received the correct IP address and port in the match allocation.
+- Verify firewall rules allow UDP traffic on the worker port range.
+- Check that the client is connecting to the intended server.
+
+</Expandable>
+
+<Expandable title="Second match fails to allocate">
+
+Each match requires a unique UDP port from the worker range. If the first worker does not release its port, the next match may remain unallocated.
+
+- Confirm that the supervisor detected and terminated the stale worker.
+- Check `match.maxConcurrentMatches`. The default value is `1`.
+- Verify that the previous match's worker stopped successfully.
+- Use the admin console command `match stop` to force-stop a stuck match.
+
+</Expandable>
+
+<Expandable title="Worker process not found">
+
+If the supervisor cannot find the game executable, verify the worker configuration and installation path.
+
+- Confirm that `worker.processPath` points to `Smash_Legends.exe`.
+- Confirm that `worker.installDirectory` points to the correct Steam installation directory.
+- Verify that `worker.enabled` is `true`.
+- Check that the executable exists at the configured path.
+
+</Expandable>
+</ExpandableGroup>

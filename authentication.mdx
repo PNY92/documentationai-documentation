@@ -1,57 +1,101 @@
 ---
-title: Authentication (Sample)
-description: Sample guidance for authentication and OpenAPI usage.
+title: Authentication
+description: Understand JWT-based authentication, sign-up and sign-in providers, session management, and token configuration for the SMASH LEGENDS private server.
 ---
-
-## Overview
-
-This is sample content. Replace tokens, URLs, headers, and flows with your real authentication requirements.
-
-<Callout kind="info">
-
-This site ships with placeholder content for authentication. Update this page and `openapi.yaml` to match your real API before sharing with users.
-
-</Callout>
-
-This API uses OpenAPI to describe endpoints, parameters, and responses. The reference is generated from `openapi.yaml`, so keep that file up to date as your API evolves.
 
 ## Authentication
 
-Use a bearer token in the `Authorization` header for authenticated requests. Replace the base URL and token with values for your own API.
+The SMASH LEGENDS private server uses JWT (JSON Web Tokens) for authentication. Clients sign up or sign in through provider-specific endpoints, receive a JWT, and include it in subsequent API requests. The server validates the JWT and checks for a live, non-revoked database session on every private endpoint.
+
+## Authentication flow
+
+1. The client sends a sign-up or sign-in request to a provider-specific endpoint, such as `POST /api_public/v1/account/sign_up/gamepot`.
+2. The server creates or retrieves the account and issues a JWT.
+3. The client includes the JWT as a Bearer token in the `Authorization` header for subsequent requests.
+4. The server validates the JWT and checks that the session is live and not revoked.
+5. When the account is deleted or the client logs out, the server revokes the session.
+
+## Sign-up and sign-in providers
+
+The server supports multiple authentication providers. Each provider has separate sign-up and sign-in endpoints under `/api_public/v1/account/`.
+
+| Provider | Sign-up endpoint | Sign-in endpoint | Usage |
+| --- | --- | --- | --- |
+| **GamePot** | `POST /api_public/v1/account/sign_up/gamepot` | `POST /api_public/v1/account/sign_in/gamepot` | Production authentication |
+| **Steam** | `POST /api_public/v1/account/sign_up/steam` | `POST /api_public/v1/account/sign_in/steam` | Production authentication |
+| **Dev** | `POST /api_public/v1/account/sign_up/dev` | `POST /api_public/v1/account/sign_in/dev` | Development and testing |
+| **Facebook** | `POST /api_public/v1/account/sign_up/facebook` | `POST /api_public/v1/account/sign_in/facebook` | Facebook authentication |
+| **Apple** | `POST /api_public/v1/account/sign_up/appleSignIn` | `POST /api_public/v1/account/sign_in/appleSignIn` | Apple authentication |
+| **Google** | `POST /api_public/v1/account/sign_up/googleSignIn` | `POST /api_public/v1/account/sign_in/googleSignIn` | Google authentication |
+| **Line** | `POST /api_public/v1/account/sign_up/line` | `POST /api_public/v1/account/sign_in/line` | Line authentication |
+| **PlayFab** | `POST /api_public/v1/account/sign_up/playfab` | `POST /api_public/v1/account/sign_in/playfab` | PlayFab authentication |
+| **Benchmark** | `POST /api_public/v1/account/sign_up/benchmark` | `POST /api_public/v1/account/sign_in/benchmark` | Load testing |
+
+<Callout kind="info">
+
+The real Steam and GamePot client paths return a `SignInModel`-shaped response directly, without an envelope. The response includes a Boolean `whiteNid` field and a far-future JWT expiration.
+
+</Callout>
+
+## JWT configuration
+
+Configure the JWT signing and token claims with the following options.
+
+<ParamField body="auth.jwtSecret" param-type="string" required="true" show-location="false">
+  Secret key used to sign and validate JWTs.
+</ParamField>
+
+<ParamField body="auth.jwtLifetimeSeconds" param-type="integer" required="true" show-location="false">
+  Token lifetime in seconds. The default is deliberately very long because the real client performs a local expiration preflight and rejects short-lived tokens.
+</ParamField>
+
+<ParamField body="auth.projectId" param-type="string" required="true" show-location="false">
+  Project identifier embedded in tokens.
+</ParamField>
+
+<ParamField body="auth.storeId" param-type="string" required="true" show-location="false">
+  Store identifier embedded in tokens.
+</ParamField>
+
+## Endpoint security model
+
+<Callout kind="info">
+
+The server groups endpoints into four security tiers:
+
+- **Public endpoints** under `/api_public/*` require no authentication. Use them for sign-up, sign-in, logging, and resource version checks.
+- **Private endpoints** under `/api/*` require a valid JWT and a live, non-revoked database session. Use them for profiles, preferences, matchmaking, lobbies, and match results.
+- **Admin endpoints** under `/admin/*` are loopback-only and accept an optional admin token. Use them for server management.
+- **Exempt endpoints** under `/master/*`, `/asset/*`, `/health`, `/evaluation`, and `/system/*` require no JWT. Use them for bootstrap, master data, feature flags, and health checks.
+
+</Callout>
+
+## Session management
+
+The server tracks authenticated sessions in the `sessions` database table. A session can be revoked by the following operations:
+
+- **Account deletion:** `POST /api/v1/user/leave`
+- **Admin kick:** `POST /admin/account/kick`
+- **Admin ban:** `POST /admin/account/ban`
+- **Server restart:** Sessions are reconciled when the server restarts.
+
+## Example: Sign in with dev provider
 
 ```bash
-curl https://api.example.com/v1/example \
-  -H "Authorization: Bearer YOUR_TOKEN"
+curl -X POST http://localhost:18080/api_public/v1/account/sign_in/dev \
+  -H "Content-Type: application/json" \
+  -d '{"id": "player1"}'
+```
+
+A successful response contains the JWT and the account information required by the client.
+
+## Example: Authenticated request
+
+```bash
+curl http://localhost:18080/api/v1/me/initial/full \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 <ParamField header="Authorization" param-type="string" required="true">
-  `Bearer YOUR_TOKEN`
+  `Bearer YOUR_JWT_TOKEN`: The JWT received from sign-up or sign-in, sent as a Bearer token.
 </ParamField>
-
-## Keep OpenAPI in sync
-
-Define your authentication and base settings in `openapi.yaml` so the API Reference stays accurate and consistent.
-
-At a minimum, you should:
-
-- Define one or more security schemes that describe how clients authenticate (for example, bearer token, API key in a header, or other scheme).
-- Reference those security schemes on operations that require authentication so they are clearly marked as secured.
-- Set the correct base URL and any required global headers (for example, versioning or tenant headers) so example requests are copy-pasteable.
-
-When your real authentication flow changes (for example, new header names, token formats, or additional requirements), update `openapi.yaml`. The generated API Reference will then reflect your current auth model without needing to edit each endpoint page by hand.
-
-## Using the API reference
-
-Use the API Reference to explore endpoints, required parameters, and example responses. When you change authentication headers or base URLs, update `openapi.yaml` so the generated reference matches what your clients should use.
-
-## Common mistakes
-
-<Expandable title="Why am I getting a 401?" default-open="false">
-
-Verify that:
-
-- The token is valid and not expired.
-- The token is sent in the `Authorization` header.
-- The header value includes the `Bearer` prefix and a space before the token.
-
-</Expandable>

@@ -1,0 +1,92 @@
+---
+title: "Frequently Asked Questions"
+description: "Answers to common questions about the SMASH LEGENDS private server — what it does, what works, and what limitations exist."
+---
+
+## Frequently asked questions
+
+Common questions about the SMASH LEGENDS private server, its capabilities, installation requirements, and current limitations.
+
+<ExpandableGroup>
+
+<Expandable title="What is the SMASH LEGENDS private server?">
+
+The SMASH LEGENDS private server is a Windows-hosted stack that redirects the official game client to a locally controlled HTTP backend.
+
+The backend handles authentication, profiles, matchmaking, and rewards. The actual match simulation runs through the game client's embedded dedicated-server implementation. The project does not reimplement the combat engine.
+
+</Expandable>
+
+<Expandable title="Does it work with the latest Steam version of the game?">
+
+The patcher verifies the game build with SHA-256 hashes for `Smash_Legends.exe`, `UnityPlayer.dll`, and `Assembly-CSharp.dll`. The pinned build uses Unity `2022.3.62f3` and Steam app ID `1352080`.
+
+If Steam updates the game, the file hashes will no longer match and the patcher will refuse to operate. You may need to use a specific game version or wait for updated hashes.
+
+</Expandable>
+
+<Expandable title="Can I play a complete match end-to-end?">
+
+Not yet. The backend coordinates matchmaking and launches a dedicated-server worker, but a complete match through the headless worker path has not been verified.
+
+The worker loads the `GameBase` scene, but its scene transition bypasses the normal configuration initialization path. This remains the main active blocker for demonstrating a complete match with connected players, bots, and persisted rewards.
+
+</Expandable>
+
+<Expandable title="Do I need to own the game on Steam?">
+
+Yes. The server requires `metadata.bin` extracted from your own Steam installation. The official game executable is also required for the dedicated-server worker.
+
+The repository does not include the executable, Unity data directory, managed game DLLs, or master-data file.
+
+</Expandable>
+
+<Expandable title="Can I run this on Linux?">
+
+No. The server uses Windows' built-in SQLite library, `winsqlite3.dll`, through P/Invoke. The match worker also requires the Windows game executable.
+
+Windows 10 or Windows 11 is required.
+
+</Expandable>
+
+<Expandable title="What game mode is supported?">
+
+The current implementation supports Team Domination, also called Capture Point, on the pirate capture-point map.
+
+Matches use two teams of three players, six total player slots, and three capture zones. A team needs four points to win, and the configured match duration is 210 seconds. Other game modes are not currently implemented.
+
+</Expandable>
+
+<Expandable title="Can bots fill empty slots?">
+
+Yes. Bot filling is enabled by default with `level_2` difficulty. The server calculates the expected bot count from the configured team size and team count.
+
+Real 3v3 bot filling has not been fully validated with live clients, so bot availability does not guarantee a complete end-to-end match.
+
+</Expandable>
+
+<Expandable title="Is the patch reversible?">
+
+Yes. The patcher creates backups and records an undo journal before modifying files. It also verifies the expected original files before applying changes.
+
+Run `unpatch.ps1` to revert the patch and restore the original game files.
+
+</Expandable>
+
+<Expandable title="How many players can the server handle?">
+
+By default, the server supports one concurrent match with up to six players, using a 3v3 configuration.
+
+You can increase `maxConcurrentMatches`, but each match requires its own dedicated-server worker process and a unique UDP port from the configured worker port range.
+
+</Expandable>
+
+<Expandable title="What happens if the server restarts during a match?">
+
+The server reconciles active matches and player sessions when it restarts. Match worker processes are tracked by process ID and log path.
+
+The supervisor terminates stale or dead workers and releases their matches so the server does not continue treating failed processes as active matches.
+
+</Expandable>
+
+</ExpandableGroup>

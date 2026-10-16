@@ -1,0 +1,182 @@
+---
+title: Patch Problems
+description: Resolve patcher issues — hash mismatches, failed patches, undo journal errors, and local-config.xml problems.
+---
+
+## Diagnose patcher and client integration problems
+
+The patcher, `slpatch.exe`, applies a verified, reversible IL patch and installs `local-config.xml`. If the patcher fails or the client does not read the configuration, use these diagnostic steps.
+
+<ExpandableGroup>
+
+<Expandable title="Patcher reports hash mismatch">
+
+The patcher verifies SHA-256 hashes for `Smash_Legends.exe`, `UnityPlayer.dll`, and `Assembly-CSharp.dll` before making any changes. A mismatch means the installed game build does not match the pinned version: Unity `2022.3.62f3` with Steam app ID `1352080`.
+
+- Verify the game files through Steam to restore the expected build.
+- Re-run the patcher after Steam finishes verification.
+- If Steam permanently updated the game beyond the pinned version, update the repository's expected hashes before patching.
+
+<Callout kind="alert">
+
+Do not force the patch onto an unexpected build. The patcher uses the hashes to prevent changes to unsupported binaries.
+
+</Callout>
+
+</Expandable>
+
+<Expandable title="Patcher fails to write files">
+
+The patcher needs write access to the game installation directory. File locks from Steam or the running game can also prevent backups, configuration writes, or binary changes.
+
+- Run PowerShell as an administrator.
+- Verify that the Steam installation directory is not read-only.
+- Close the game and check that no other process has the game files locked.
+- Close Steam before patching to prevent file conflicts.
+- Confirm that the install directory points to the folder containing `Smash_Legends.exe`.
+
+</Expandable>
+
+<Expandable title="local-config.xml not found by client">
+
+The game reads `local-config.xml` from its working directory. The file must be in the game root directory, alongside `Smash_Legends.exe`.
+
+- Verify that `local-config.xml` exists in the game root directory.
+- Open the file and verify that it is valid XML.
+- Check that the file contains the private server's correct address and port.
+- Verify that the patcher used the correct Steam installation directory.
+- Re-run `apply-dedicated-server-patch.ps1` with the correct install directory.
+
+```powershell
+.\scripts\apply-dedicated-server-patch.ps1 --install-dir "C:\Program Files (x86)\Steam\steamapps\common\SMASH LEGENDS"
+```
+
+</Expandable>
+
+<Expandable title="Patch applied but client still connects to official servers">
+
+The client must read both the patched startup path and the generated `local-config.xml` to connect to the private server.
+
+- Verify that the patch was applied successfully by running `verify-boot-contract.ps1`.
+- Check that `local-config.xml` contains the private server address, not an official endpoint.
+- Verify that the advertised address and port in `server-config.json` match the address and port in `local-config.xml`.
+- Confirm that the game has not been re-verified or updated through Steam since the patch was applied.
+- If Steam restored the original binaries, apply the patch again after confirming the game hashes.
+
+</Expandable>
+
+<Expandable title="Cannot revert the patch">
+
+The patcher uses backups and an undo journal to restore modified files. If `unpatch.ps1` fails, inspect those recovery files before attempting another patch operation.
+
+- Verify that the undo journal exists in the patcher's output directory.
+- Check that the backup files are present and readable.
+- Close Steam and the game before reverting.
+- Run `slpatch.exe revert` directly with the correct install directory.
+- If the backups are missing or corrupted, verify the game files through Steam to restore the original build.
+
+```powershell
+.\slpatch.exe revert --install-dir "C:\Program Files (x86)\Steam\steamapps\common\SMASH LEGENDS"
+```
+
+<Callout kind="alert">
+
+If Steam restores the original files, the installed patch and its undo journal may no longer describe the current game files. Verify the clean build before applying a new patch.
+
+</Callout>
+
+</Expandable>
+
+<Expandable title="Patcher crashes or reports an unexpected error">
+
+The patcher targets .NET 10 and must be able to access the game installation and its managed assemblies.
+
+- Verify that the .NET 10 SDK is installed.
+- Run the patcher from an elevated PowerShell session.
+- Read the patcher's console output and record the specific error message.
+- Verify that the game installation path is correct and accessible.
+- Ensure that the game is not running during patch operations.
+- Confirm that the patcher is operating on the expected Steam installation, not a second library or copied game directory.
+
+</Expandable>
+
+<Expandable title="IL patch applied but dedicated server does not start">
+
+The IL patch is gated on `Application.isBatchMode`, so it activates only when the official client runs in headless mode. The dedicated-server worker should start with `-batchmode -nographics -autoHost`.
+
+- Verify that the worker uses the required headless arguments.
+- Check the worker log for Unity startup and binding messages.
+- Verify that the IL patch was applied to `Assembly-CSharp.dll`.
+- Confirm that the worker receives an available UDP port.
+- Check that the worker process starts from the patched game installation.
+
+A worker launch should resemble the following command:
+
+```powershell
+Smash_Legends.exe -batchmode -nographics -autoHost --port 30000 -logFile "_work\logs\match-workers\match-30000.log"
+```
+
+<Callout kind="alert">
+
+The worker may load `GameBase` without completing full match initialization. This is the known main blocker: the worker's scene transition bypasses the normal configuration initialization path. The current patch reaches the UDP bind and `GameBase` scene load, but a complete end-to-end match is not fully verified.
+
+</Callout>
+
+</Expandable>
+
+</ExpandableGroup>
+
+## Worker issues after a successful patch
+
+A successful hash check and IL patch confirm that the expected files were modified. They do not confirm that the headless worker can complete a match.
+
+The current integration path can reach the embedded dedicated-server code, bind a UDP port, and load the `GameBase` scene. The worker can still fail later because its scene transition bypasses the normal startup ladder that initializes the launch configuration.
+
+Check the following evidence in order:
+
+1. The worker command includes `-batchmode -nographics -autoHost`.
+2. The worker log shows the expected UDP port and does not report an immediate Unity crash.
+3. `local-config.xml` exists in the same game working directory used by the worker.
+4. The worker log reaches `GameBase` scene loading.
+5. The server reports the worker as alive and retains the match allocation.
+
+<Callout kind="info">
+
+The documented acceptance bar has not been demonstrated end to end: two human clients, four bots, a completed 3v3 Capture Point match, and persisted rewards. Treat a worker that binds its port or loads `GameBase` as partial progress, not as proof that gameplay is ready.
+
+</Callout>
+
+<ExpandableGroup>
+
+<Expandable title="Collect diagnostic information">
+
+Capture the following information before changing files or reverting the patch:
+
+- The exact patcher command and install directory.
+- The hash mismatch or error text, if reported.
+- Whether Steam verification or an update ran recently.
+- The presence of `local-config.xml` beside `Smash_Legends.exe`.
+- The worker launch arguments.
+- The relevant file from `_work/logs/match-workers/`.
+- Whether the worker reached UDP bind and `GameBase` scene loading.
+- Whether the server advertised the expected address and port.
+
+Keeping these details together distinguishes a file-integrity problem from a worker initialization problem.
+
+</Expandable>
+
+<Expandable title="Restore a clean game installation">
+
+If the patch state is inconsistent, restore the official files through Steam before attempting another patch.
+
+- Stop the private server and all worker processes.
+- Close the game and Steam.
+- Reopen Steam and verify the game files.
+- Wait for verification or download operations to finish.
+- Confirm that the installed files match the pinned build.
+- Re-run the patcher with the correct install directory.
+- Verify the patch before starting a worker.
+
+</Expandable>
+
+</ExpandableGroup>

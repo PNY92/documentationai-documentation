@@ -1,0 +1,146 @@
+---
+title: "Two-Client Testing"
+description: "Test SMASH LEGENDS private server gameplay with two game clients using the automated test script or the manual direct host/join path."
+---
+
+## Test with two game clients
+
+Test the private server with two game clients to verify matchmaking, match allocation, and UDP connectivity. Use the automated test script or the manual direct host/join path built into the patched client.
+
+## Prerequisites
+
+<Callout kind="info">
+
+Before testing, confirm that you have:
+
+- A running server on port `18080`
+- A patched and verified game client
+- Two separate game client instances on the same machine or on different machines on the same LAN
+- Firewall access for the worker port range `30000` through `30010`
+
+</Callout>
+
+## Automated test script
+
+The repository includes `scripts/test-two-clients.ps1` for automated two-client testing. The script launches both clients, starts a host, and attempts to connect the second client to it.
+
+<Steps>
+<Step title="Run the test script">
+
+From the repository root, run:
+
+```powershell
+cd scripts
+.\test-two-clients.ps1
+```
+
+The script launches two game client instances, starts a host on one client, and attempts to join from the other. It captures diagnostic logs for both instances.
+
+</Step>
+
+<Step title="Review the results">
+
+Check the console output for these events:
+
+- Both clients reach the private server.
+- The host successfully starts a dedicated-server worker.
+- The join client connects to the worker over UDP.
+- Match state transitions appear in the server or client output.
+
+</Step>
+
+<Step title="Check worker logs">
+
+Worker logs are written to `_work/logs/match-workers/`. Each worker receives its own log file. Look for:
+
+- Successful UDP binding
+- `GameBase` scene loading
+- Client connection events
+- Error messages or native crashes
+
+</Step>
+</Steps>
+
+## Manual host/join path
+
+The patched client includes keyboard shortcuts for direct hosting and joining. This path bypasses the matchmaking flow and provides the shortest way to test connectivity between two clients.
+
+<Steps>
+<Step title="Start the host">
+
+On the first client instance, press `H` to start a host. The shortcut calls the embedded `DedicatedServer.Host(...)` method and begins listening for UDP connections.
+
+</Step>
+
+<Step title="Join the host">
+
+On the second client instance, press `C` to join a development host. The shortcut calls `ClientConnect.Connect(...)` and attempts to reach the host's UDP port.
+
+</Step>
+
+<Step title="Verify the connection">
+
+Watch both client consoles and the server output. A successful connection shows:
+
+- The host binds to a UDP port between `30000` and `30010`.
+- The join client receives the host address and port.
+- Both clients enter the match scene.
+
+</Step>
+</Steps>
+
+## What to look for
+
+<Callout kind="tip">
+
+Use these points to evaluate the test:
+
+- The host's UDP port is reachable from the join client.
+- The `advertised.address` value in `config/server-config.json` matches your network setup.
+- Both clients authenticate and load their profiles before attempting to connect.
+- The worker process remains alive for the duration of the match.
+- The server records match results after the match ends.
+- Rewards are granted without duplicate entries.
+
+</Callout>
+
+## Known limitations
+
+<Callout kind="alert">
+
+The current build has not yet confirmed:
+
+- A complete match through the headless worker path. The worker loads `GameBase`, but its scene transition bypasses normal configuration initialization.
+- Reliable two-client gameplay from start to finish.
+- Real 3v3 bot filling.
+- Match results with persisted rewards.
+- A second consecutive match with complete worker and resource cleanup.
+
+The main blocker is that the worker loads `GameBase` in a way that bypasses the interactive startup ladder responsible for initializing the client's launch configuration. A four-site IL fix was attempted, but it caused a native crash and was not shipped.
+
+</Callout>
+
+## Diagnostic scripts
+
+Use these scripts when the automated test does not reach the expected state:
+
+- `scripts/probe-client-boot.ps1`: Probes the client boot sequence.
+- `scripts/verify-boot-contract.ps1`: Verifies the patched game state.
+
+## Next steps
+
+<Columns cols={2}>
+
+<Card title="Troubleshooting" href="/help-center/troubleshooting/worker-issues" icon="alert-triangle">
+
+Resolve match worker issues.
+
+</Card>
+
+<Card title="Architecture" href="/architecture" icon="server">
+
+Understand the worker and data flow.
+
+</Card>
+
+</Columns>

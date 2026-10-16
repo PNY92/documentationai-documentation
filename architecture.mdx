@@ -1,0 +1,126 @@
+---
+title: "Architecture"
+description: "Understand the runtime components, data flow, and system boundaries of the SMASH LEGENDS private server stack."
+---
+
+## Architecture
+
+The SMASH LEGENDS private server consists of four runtime components that work together to redirect the official game client to a locally controlled backend while preserving the game's authoritative match simulation.
+
+## Runtime components
+
+```text
+┌─────────────┐     HTTP/18080     ┌──────────────────────┐
+│  Game Client │ ──────────────────► │  SmashLegends.Server  │
+│  (Unity)     │                     │  ASP.NET Core + SQLite │
+│              │     UDP/30000+      │  Port 18080 (HTTP)    │
+│              │ ──────────────────► │  Port 18081 (WebSocket)│
+└─────────────┘                     └──────────────────────┘
+      │                                        │  loopback
+      │                                        ▼
+      │                               ┌──────────────────────┐
+      │     UDP/30000+                │  SmashLegends.Admin    │
+      └──────────────────────────────►│  Terminal console      │
+                                      └──────────────────────┘
+
+┌─────────────────┐  patches   ┌─────────────┐
+│ SmashLegends.   │ ─────────► │ Game Client  │
+│ Patcher         │            │ (Smash_Legends│
+│ (slpatch.exe)   │ ◄───────── │  .exe)       │
+└─────────────────┘  revert    └─────────────┘
+```
+
+`SmashLegends.Server` handles HTTP requests, authentication, persistence, matchmaking, and lobby state. The official game executable remains responsible for Unity networking and authoritative combat simulation inside each match.
+
+`SmashLegends.Admin` communicates with the server over loopback-only administrative endpoints. `SmashLegends.Patcher` prepares the official client by installing local configuration and enabling the headless dedicated-server path without permanently replacing the game executable.
+
+## Component breakdown
+
+<Columns cols={2}>
+
+<Card title="SmashLegends.Server" href="#runtime-components" icon="server">
+
+ASP.NET Core HTTP backend for authentication, profiles, matchmaking, lobbies, and administration. It uses SQLite with WAL mode.
+
+The server listens on HTTP port `18080` by default, with an optional out-game WebSocket listener on port `18081` and an optional SNTP server.
+
+</Card>
+
+<Card title="SmashLegends.Admin" href="#runtime-components" icon="terminal">
+
+Terminal console for server administration. It calls loopback-only `/admin/*` APIs to create accounts, manage players, control matches, and back up the database.
+
+The console also supervises official game-client match worker processes.
+
+</Card>
+
+<Card title="SmashLegends.Patcher" href="#runtime-components" icon="settings">
+
+Command-line tool distributed as `slpatch.exe`. It verifies the game build with SHA-256 hashes, installs `local-config.xml`, and applies a reversible IL patch for dedicated-server mode.
+
+The patcher maintains file backups and an undo journal so changes can be reverted and verified.
+
+</Card>
+
+<Card title="Dedicated-server worker" href="#runtime-components" icon="play-circle">
+
+The official `Smash_Legends.exe` executable, launched headlessly with `-batchmode -nographics -autoHost`.
+
+The worker runs the authoritative Unity match simulation and binds a UDP port from `worker.portMin` through `worker.portMax`, normally `30000` through `30010`. Per-match logs are written to `_work/logs/match-workers/`.
+
+</Card>
+
+</Columns>
+
+## Request flow
+
+The client and backend coordinate setup and match allocation over HTTP. The client then switches to a direct UDP connection with the dedicated-server worker for the match itself.
+
+1. The client reads `local-config.xml` during startup. The file redirects the client to the private server.
+2. The client calls bootstrap endpoints for master data, feature flags, and health information.
+3. The client authenticates through sign-up or sign-in and receives a JWT.
+4. The client loads `me/initial/full`, including characters, inventory, preferences, and other profile state.
+5. The client enters a lobby and creates or joins a band room.
+6. The client starts matchmaking. The server creates a ticket, allocates a match, and launches a worker.
+7. The client polls ticket and allocation endpoints until it receives the match IP address, UDP port, security key, and match ID.
+8. The client connects over UDP directly to the dedicated-server worker.
+9. The worker runs the match and reports match completion to the backend.
+10. The server records the result and awards rewards through an idempotent reward flow.
+
+The backend coordinates authentication, allocation, lifecycle state, and rewards. The official worker performs the actual combat simulation.
+
+## Database
+
+The server uses SQLite with WAL mode and automatic numbered migrations. The database supports transactional updates, backups, restores, and integrity checks.
+
+The schema includes the following tables:
+
+- `accounts`
+- `characters`
+- `inventory`
+- `sessions`
+- `tickets`
+- `matches`
+- `match_results`
+- `match_reward_ledger`
+- `idempotency_keys`
+- `band_rooms`
+- `band_members`
+- `band_bots`
+- `preferences`
+- `presence`
+- `audit_events`
+- `schema_migrations`
+
+The `match_reward_ledger` and `idempotency_keys` tables prevent repeated result submissions from crediting rewards more than once.
+
+## Security model
+
+<Callout kind="info">
+
+- **Public endpoints:** `/api_public/*` require no authentication and support sign-up and sign-in.
+- **Private endpoints:** `/api/*` require a valid JWT and a live, non-revoked database session.
+- **Admin endpoints:** `/admin/*` accept requests only from loopback peers and can require an additional admin token.
+- **Exempt endpoints:** `/master/*`, `/asset/*`, `/health`, `/evaluation`, and `/system/*` do not require the normal game JWT guard.
+
+</Callout>

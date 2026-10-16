@@ -1,78 +1,93 @@
 ---
-title: Set Up Your Documentation
-description: 'A minimal, editable starting point for your own documentation site.'
+title: "Introduction"
+description: "Learn how the SMASH LEGENDS private server redirects the official game client to a locally controlled backend for private matches with friends."
 ---
-## Start here (5–10 minutes)
 
-1. Edit this page so it describes your product and audience.
+## Introduction
 
-2. Customize your onboarding flow in the [Quickstart](/quickstart) page.
+Host private SMASH LEGENDS matches by redirecting the official game client to a local ASP.NET Core backend. The private server does not reimplement the combat engine. It uses the client's own embedded dedicated-server implementation for match simulation, while handling authentication, profiles, matchmaking, and rewards through a local HTTP API.
 
-3. Delete or rewrite any sections and pages you do not plan to use.
+## What is the private server?
 
-4. Invite a teammate to review the structure and concepts starting from [Core Concepts](/concepts).
+The SMASH LEGENDS private server is a Windows-hosted stack with three main components:
 
-<Callout kind="alert" collapsed="false">
-  This site ships with placeholder content. Edit the text, links, and examples so they match your product before sharing it with others.
+- **SmashLegends.Server**: An ASP.NET Core HTTP backend on the default port `18080` with a SQLite database. It handles accounts, JWT sessions, profiles, inventory, matchmaking, lobby management, rewards, and admin operations.
+- **SmashLegends.Admin**: An interactive terminal console that calls loopback-only admin APIs to create accounts, manage players, control matches, and back up the database.
+- **SmashLegends.Patcher**: A command-line tool, `slpatch.exe`, that generates and verifies SHA-256 manifests, installs `local-config.xml`, and applies a reversible IL patch to the official game executable.
+
+The server targets .NET 10 and uses SQLite through P/Invoke to Windows' `winsqlite3.dll`. It has no external NuGet database dependencies.
+
+## How it works
+
+The client uses the private HTTP backend for meta-game operations and connects directly to the official embedded dedicated-server worker for real-time match simulation.
+
+```text
+Game Client
+  ├── HTTP → SmashLegends.Server
+  │            ├── Accounts and JWT sessions
+  │            ├── Profiles, inventory, characters
+  │            ├── Master data and feature flags
+  │            ├── Lobby and band management
+  │            ├── Matchmaking and allocation
+  │            └── Admin API (loopback only)
+  │
+  └── UDP → Official embedded dedicated-server worker
+               └── Authoritative Unity match simulation
+```
+
+When a match starts, the server launches the official game executable headlessly with `-batchmode -nographics -autoHost` as a dedicated-server worker. The client then connects directly to that worker over UDP for real-time match simulation.
+
+## Current status
+
+<Callout kind="info">
+
+The following features have been verified:
+
+- `local-config.xml` is read by the official client.
+- The client reaches the private server.
+- Master data is served successfully.
+- GamePot and Steam-shaped sign-up works.
+- JWT authentication and preference loading work.
+- The client reaches the lobby.
+- The dedicated-server worker binds its UDP port.
+- The server loads the `GameBase` scene.
+- The patch is reversible and hash-verified.
+- Configuration validation and audit logging work.
+- Database backup, restore, and migrations exist.
+- Admin routes reject non-loopback peers.
+
 </Callout>
 
-## What you get
+<Callout kind="alert">
 
-<Columns cols="3">
-  <Card title="Docs structure" href="/quickstart" icon="book-open" horizontal="false">
-    A clear navigation layout with starter pages you can rename or replace.
+The following features are not yet confirmed end-to-end:
+
+- A complete real match through the headless worker path.
+- Reliable two-client gameplay.
+- Real 3v3 bot filling.
+- A completed match with persisted rewards.
+- A second consecutive match demonstrating full worker and resource cleanup.
+
+</Callout>
+
+## Next steps
+
+<Columns cols={3}>
+  <Card title="Quickstart" href="/quickstart" icon="zap">
+
+  Get the server running in minimal steps.
+
   </Card>
 
-  <Card title="Components" href="#try-a-few-components" icon="layout-grid" horizontal="false" target="_self">
-    Prebuilt blocks like Callouts, Steps, Tabs, and Cards to keep pages clean.
+  <Card title="Architecture" href="/architecture" icon="server">
+
+  Understand the runtime components and data flow.
+
   </Card>
 
-  <Card title="API reference hook" href="/authentication" icon="code" horizontal="false">
-    A placeholder `openapi.yaml` you can swap with your real API spec.
-  </Card>
-</Columns>
+  <Card title="Setup Guide" href="/guides/setup" icon="book-open">
 
-## Make your first edit
+  Follow the full walkthrough from prerequisites to first connection.
 
-<Steps>
-  <Step title="Rewrite this page" icon="edit" title-type="p">
-    Update the title, description, and sections in `introduction` so they reflect your product and documentation goals.
-  </Step>
-
-  <Step title="Customize Quickstart" icon="zap" title-type="p">
-    Replace the steps in `quickstart` with your real onboarding flow so new readers know exactly how to get started.
-  </Step>
-
-  <Step title="Remove or repurpose samples" icon="trash" title-type="p">
-    Delete unused sample sections and pages, or rewrite them with your own content to keep navigation focused.
-  </Step>
-</Steps>
-
-## Try a few components
-
-You can browse the component gallery in the [Components](/components) page for ready-to-use examples of Cards, Callouts, Steps, Tabs, and more.
-
-## Continue to the rest of the sample
-
-<Columns cols="2">
-  <Card title="Quickstart" href="/quickstart" icon="zap" horizontal="false">
-    See the minimal setup flow.
-  </Card>
-
-  <Card title="Core Concepts" href="/concepts" icon="layers" horizontal="false">
-    Learn how pages, navigation, and components fit together.
-  </Card>
-
-  <Card title="Components" href="/components" icon="code" horizontal="false">
-    A small gallery of built-in components.
-  </Card>
-
-  <Card title="Authentication" href="/authentication" icon="lock" horizontal="false">
-    Example layout for an auth guide.
-  </Card>
-
-  <Card title="Help Center" href="/help-center" icon="help-circle" horizontal="false">
-    Starter FAQ, guides, and troubleshooting templates.
   </Card>
 </Columns>
-

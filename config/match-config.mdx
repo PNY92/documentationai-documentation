@@ -1,0 +1,165 @@
+---
+title: Match Configuration
+description: Tune match duration, score limits, respawn timers, team domination settings, ticket timeouts, and bot configuration for private SMASH LEGENDS matches.
+---
+
+## Match configuration
+
+Match configuration controls gameplay parameters for Team Domination, also called Capture Point, matches. Set values in `config/server-config.json` under the `match`, `teamDomination`, and `bot` sections, or change them at runtime through the admin console.
+
+## Match rules
+
+The server supports one active match by default. These settings control match timing, allocation, matchmaking tickets, and the connection details advertised to clients.
+
+<ParamField body="match.serverAddress" param-type="string" required="false" show-location="false">Override the match server address. When unset, the server uses the configured advertised address.</ParamField>
+
+<ParamField body="match.serverPort" param-type="integer" required="false" show-location="false">Override the match server port.</ParamField>
+
+<ParamField body="match.durationSec" param-type="integer" required="false" show-location="false">Match duration in seconds. Default: `210`.</ParamField>
+
+<ParamField body="match.scoreLimit" param-type="integer" required="false" show-location="false">Number of points required to win. Default: `4`.</ParamField>
+
+<ParamField body="match.respawn.seconds" param-type="integer" required="false" show-location="false">Base respawn delay in seconds. Default: `5`.</ParamField>
+
+<ParamField body="match.respawn.increasePeriod" param-type="integer" required="false" show-location="false">Number of seconds between respawn delay increases. Default: `20`.</ParamField>
+
+<ParamField body="match.respawn.increaseUnit" param-type="integer" required="false" show-location="false">Amount added to the respawn delay after each increase period. Default: `1`.</ParamField>
+
+<ParamField body="match.region" param-type="string" required="false" show-location="false">Region identifier used for match allocation. Default: `local`.</ParamField>
+
+<ParamField body="match.matchType" param-type="string" required="false" show-location="false">Match type reported to the client. Default: `ranked`.</ParamField>
+
+<ParamField body="match.maxConcurrentMatches" param-type="integer" required="false" show-location="false">Maximum number of matches that can run at the same time. Default: `1`.</ParamField>
+
+<ParamField body="match.ticketTimeoutSeconds" param-type="integer" required="false" show-location="false">Maximum lifetime of a matchmaking ticket before it times out. Default: `120` seconds.</ParamField>
+
+<ParamField body="match.queueSeconds" param-type="integer" required="false" show-location="false">Time before a ticket enters the searching state. Default: `3` seconds.</ParamField>
+
+<ParamField body="match.lobbyIdleTimeoutSeconds" param-type="integer" required="false" show-location="false">Maximum idle time for a lobby before the server expires it.</ParamField>
+
+<ParamField body="match.allocationIdleTimeoutSeconds" param-type="integer" required="false" show-location="false">Maximum idle time for an allocated match before the server releases it.</ParamField>
+
+<ParamField body="match.securityKeyTtlSeconds" param-type="integer" required="false" show-location="false">Time-to-live for the security key issued with a match allocation.</ParamField>
+
+## Team Domination mode
+
+The repository targets Team Domination, also called Capture Point, on the pirate capture-point map. The decoded mode data is stored in `data/catalog/team-domination-capturepoint.json`.
+
+<Callout kind="info">
+
+The shipped values originate from decoded game data. Modifying these values without matching the client's expectations may cause desynchronization or crashes.
+
+</Callout>
+
+### Shipped mode values
+
+```json
+{
+  "mapId": "capturepoint_pirate_01",
+  "mapScene": "Map_CapturePoint_Pirate_01",
+  "numericMapId": 1,
+  "mode": "CapturePoint",
+  "modeId": 3,
+  "ruleId": 3,
+  "teamCount": 2,
+  "teamSize": 3,
+  "captureZones": 3,
+  "maxPlayerCount": 6,
+  "occupyingPointsPerSec": [62.5, 77, 100],
+  "losingPointPerSec": 100,
+  "maxOccupationPoint": 100,
+  "areaActivateTime": 7,
+  "scoreUpTime": 12,
+  "scoreUpAmount": 1
+}
+```
+
+### Mode options
+
+<ParamField body="teamDomination.mapId" param-type="string" required="false" show-location="false">Map identifier string. The shipped value is `capturepoint_pirate_01`.</ParamField>
+
+<ParamField body="teamDomination.mapScene" param-type="string" required="false" show-location="false">Unity scene name. The shipped value is `Map_CapturePoint_Pirate_01`.</ParamField>
+
+<ParamField body="teamDomination.numericMapId" param-type="integer" required="false" show-location="false">Numeric map identifier. The shipped value is `1`.</ParamField>
+
+<ParamField body="teamDomination.mode" param-type="string" required="false" show-location="false">Game mode name. The shipped value is `CapturePoint`.</ParamField>
+
+<ParamField body="teamDomination.modeId" param-type="integer" required="false" show-location="false">Numeric game mode identifier. The shipped value is `3`.</ParamField>
+
+<ParamField body="teamDomination.ruleId" param-type="integer" required="false" show-location="false">Numeric ruleset identifier. The shipped value is `3`.</ParamField>
+
+<ParamField body="teamDomination.teamCount" param-type="integer" required="false" show-location="false">Number of teams. Default: `2`.</ParamField>
+
+<ParamField body="teamDomination.teamSize" param-type="integer" required="false" show-location="false">Number of players per team. Default: `3`.</ParamField>
+
+<ParamField body="teamDomination.captureZones" param-type="integer" required="false" show-location="false">Number of capture zones. Default: `3`.</ParamField>
+
+<ParamField body="teamDomination.maxPlayerCount" param-type="integer" required="false" show-location="false">Total number of player slots across all teams. Default: `6`.</ParamField>
+
+<ParamField body="teamDomination.occupyingPointsPerSec" param-type="array of numbers" required="false" show-location="false">Occupation rate for each zone state. Default: `[62.5, 77, 100]`.</ParamField>
+
+<ParamField body="teamDomination.losingPointPerSec" param-type="number" required="false" show-location="false">Point decay rate for the losing team. Default: `100`.</ParamField>
+
+<ParamField body="teamDomination.maxOccupationPoint" param-type="number" required="false" show-location="false">Maximum occupation value. Default: `100`.</ParamField>
+
+<ParamField body="teamDomination.areaActivateTime" param-type="integer" required="false" show-location="false">Time in seconds before a capture zone becomes active. Default: `7`.</ParamField>
+
+<ParamField body="teamDomination.scoreUpTime" param-type="integer" required="false" show-location="false">Interval between score-up events in seconds. Default: `12`.</ParamField>
+
+<ParamField body="teamDomination.scoreUpAmount" param-type="integer" required="false" show-location="false">Points awarded for each score-up event. Default: `1`.</ParamField>
+
+## Bots
+
+The server can fill unused player slots with bots. Bot filling is enabled by default.
+
+<Callout kind="alert">
+
+Real 3v3 bot filling has not been fully validated with live clients. The server can calculate the expected bot count from team size and team count, but complete bot behavior remains unconfirmed.
+
+</Callout>
+
+<ParamField body="bot.fill" param-type="boolean" required="false" show-location="false">Whether the server fills empty player slots with bots. Default: `true`.</ParamField>
+
+<ParamField body="bot.difficulty" param-type="string" required="false" show-location="false">Bot difficulty level. Valid values are an empty string, `nobrain`, and `level_1` through `level_8`. Default: `level_2`.</ParamField>
+
+<ParamField body="bot.allowedAdditionalCharacterIds" param-type="array of integers" required="false" show-location="false">Additional character IDs that bots may use.</ParamField>
+
+<ParamField body="bot.characterLevel" param-type="integer" required="false" show-location="false">Character level assigned to bots.</ParamField>
+
+## Worker process
+
+The match worker supervisor launches the official game executable in headless mode. These settings control worker activation, executable discovery, UDP port allocation, logging, and additional launch arguments.
+
+<ParamField body="worker.enabled" param-type="boolean" required="false" show-location="false">Whether worker supervision is active. Default: `true`.</ParamField>
+
+<ParamField body="worker.installDirectory" param-type="string" required="false" show-location="false">Game installation directory used to locate the worker executable.</ParamField>
+
+<ParamField body="worker.processPath" param-type="string" required="false" show-location="false">Game executable path. Default: `Smash_Legends.exe`.</ParamField>
+
+<ParamField body="worker.portMin" param-type="integer" required="false" show-location="false">Minimum UDP port available for match workers. Default: `30000`.</ParamField>
+
+<ParamField body="worker.portMax" param-type="integer" required="false" show-location="false">Maximum UDP port available for match workers. Default: `30010`.</ParamField>
+
+<ParamField body="worker.logDirectory" param-type="string" required="false" show-location="false">Directory for per-worker log files. Default: `_work/logs/match-workers`.</ParamField>
+
+<ParamField body="worker.portArgumentStyle" param-type="string" required="false" show-location="false">Argument style used to pass the selected UDP port to the executable.</ParamField>
+
+<ParamField body="worker.extraArguments" param-type="array of strings" required="false" show-location="false">Additional command-line arguments appended when the worker starts.</ParamField>
+
+A worker is launched with arguments similar to the following:
+
+```text
+Smash_Legends.exe -batchmode -nographics -autoHost --port 30000 -logFile <path>
+```
+
+The supervisor selects an available port from the configured range, starts the process, captures its log, and monitors its lifetime.
+
+## Tutorial settings
+
+The default backend reports tutorial completion so a new player is not blocked at the Play tutorial.
+
+<ParamField body="tutorial.autoComplete" param-type="boolean" required="false" show-location="false">Whether the backend automatically reports tutorials as complete. Default: `true`.</ParamField>
+
+<ParamField body="tutorial.progressIds" param-type="array of strings" required="false" show-location="false">List of completed tutorial progress identifiers.</ParamField>
+
+<ParamField body="tutorial.completedTypes" param-type="array of strings" required="false" show-location="false">Tutorial categories reported as complete. The shipped values include `ControlTutorial`, `RuleTutorial`, and `PlayTutorial`.</ParamField>

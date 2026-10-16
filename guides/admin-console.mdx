@@ -1,0 +1,197 @@
+---
+title: "Admin Console"
+description: "Manage the SMASH LEGENDS private server through the terminal admin console: create accounts, manage players, control matches, and back up data."
+---
+
+## Admin console
+
+The `SmashLegends.Admin` console is an interactive terminal that calls loopback-only `/admin/*` API endpoints on the server. Use it to create accounts, manage players, start and stop matches, change configuration, and back up the database.
+
+Launch the console from the repository root:
+
+```powershell
+.\scripts\admin-console.ps1
+```
+
+The console must run on the same machine as the server because admin endpoints reject non-loopback connections.
+
+## Security
+
+<Callout kind="info">
+
+All admin endpoints are loopback-only and reject connections from non-loopback peers. If `join.adminToken` is configured, clients must also provide the token through the `x-admin-token` header or the `?token=` query parameter. Every mutation is written to `_work/logs/server/admin-audit.jsonl`.
+
+</Callout>
+
+## Commands
+
+Use the command groups below to inspect server state and perform administrative actions.
+
+<ExpandableGroup>
+
+<Expandable title="status">
+
+Displays server status, including uptime, active matches, player count, and database state.
+
+</Expandable>
+
+<Expandable title="players">
+
+Lists all players on the server with their account IDs, names, levels, and online status.
+
+</Expandable>
+
+<Expandable title="matches">
+
+Lists active and recent matches with match IDs, participants, and worker status.
+
+</Expandable>
+
+<Expandable title="shutdown">
+
+Gracefully shuts down the server and terminates any active match workers.
+
+</Expandable>
+
+<Expandable title="account create">
+
+Creates a new account.
+
+<ParamField body="provider" param-type="string" required="true" show-location="false" enum="gamepot,steam,dev">Provider type for the account.</ParamField>
+
+<ParamField body="displayName" param-type="string" required="false" show-location="false">Optional display name for the account.</ParamField>
+
+</Expandable>
+
+<Expandable title="account kick">
+
+Disconnects a player from the server.
+
+<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the player to disconnect.</ParamField>
+
+</Expandable>
+
+<Expandable title="account ban">
+
+Bans an account from connecting to the server.
+
+<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the account to ban.</ParamField>
+
+</Expandable>
+
+<Expandable title="account unban">
+
+Removes a ban from an account and allows the account to connect again.
+
+<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the account to unban.</ParamField>
+
+</Expandable>
+
+<Expandable title="player unlock">
+
+Unlocks a character for a player.
+
+<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the player.</ParamField>
+
+<ParamField body="characterId" param-type="integer" required="true" show-location="false">Character identifier to unlock.</ParamField>
+
+</Expandable>
+
+<Expandable title="player level">
+
+Sets a player's character or account level.
+
+<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the player.</ParamField>
+
+<ParamField body="level" param-type="integer" required="true" show-location="false">Level to assign.</ParamField>
+
+</Expandable>
+
+<Expandable title="player currency">
+
+Adjusts a player's currency balance.
+
+<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the player.</ParamField>
+
+<ParamField body="amount" param-type="integer" required="true" show-location="false">Amount to apply to the player's currency balance.</ParamField>
+
+</Expandable>
+
+<Expandable title="config show">
+
+Displays the current server configuration, including listener, join, match, worker, database, and logging settings.
+
+</Expandable>
+
+<Expandable title="config set">
+
+Updates a configuration value by using a dotted path. For example, the following command changes the respawn delay to 10 seconds:
+
+```text
+config set match.respawn.seconds 10
+```
+
+Configuration changes are validated transactionally. If a value is invalid, the update is rejected and the previous configuration remains active.
+
+</Expandable>
+
+<Expandable title="config reload">
+
+Reloads the configuration from `server-config.json`.
+
+</Expandable>
+
+<Expandable title="match start">
+
+Starts a match and launches an official game executable as a dedicated-server worker.
+
+</Expandable>
+
+<Expandable title="match stop">
+
+Stops an active match and terminates its worker process.
+
+</Expandable>
+
+<Expandable title="backup">
+
+Creates a database backup in the configured backup directory. The default directory is `data/backups`.
+
+</Expandable>
+
+</ExpandableGroup>
+
+## Match worker supervision
+
+The admin console also supervises the dedicated-server processes used for matches. For each match, the supervisor manages the worker lifecycle and associates the process with the match record.
+
+The supervisor:
+
+- Chooses an unused UDP worker port from the configured range, normally 30000 through 30010.
+- Spawns the official game executable with headless arguments.
+- Captures a per-match log file.
+- Records the process ID and log path.
+- Refreshes worker liveness checks.
+- Terminates dead or stale workers.
+- Releases matches after process failure.
+- Reconciles active matches after a server restart.
+
+Worker logs are stored under `_work/logs/match-workers` by default. The worker process uses the official executable in headless mode with arguments such as `-batchmode`, `-nographics`, and `-autoHost`.
+
+## Next steps
+
+<Columns cols={2}>
+
+<Card title="Configuration" href="/config/server-config" icon="settings">
+
+Server configuration reference.
+
+</Card>
+
+<Card title="Match Configuration" href="/config/match-config" icon="settings">
+
+Match and worker settings.
+
+</Card>
+
+</Columns>

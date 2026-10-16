@@ -1,0 +1,202 @@
+---
+title: "Patcher Guide"
+description: "Learn how to use slpatch.exe to verify game builds, install local-config.xml, apply the dedicated-server IL patch, and safely revert all changes."
+---
+
+## Patcher overview
+
+The patcher, `slpatch.exe`, bridges the official game client and the private server. It installs `local-config.xml` to redirect the client and applies a small, verified IL modification that enables headless dedicated-server mode. All changes are hash-verified, backed up, and reversible.
+
+## Build verification
+
+The patcher refuses to operate on unexpected game builds. It checks SHA-256 hashes for these files:
+
+- `Smash_Legends.exe`
+- `UnityPlayer.dll`
+- `Smash_Legends_Data/Managed/Assembly-CSharp.dll`
+
+The pinned build uses Unity `2022.3.62f3` and Steam app ID `1352080`. If any target file has an unexpected hash, the patcher stops before making changes.
+
+## What the patcher does
+
+<Columns cols={2}>
+
+<Card title="Installs local-config.xml" icon="file-text">
+
+Generates and installs the local configuration file. The file overrides the remote configuration and points the client to the private backend.
+
+</Card>
+
+<Card title="Applies IL patch" icon="wrench">
+
+Installs a small, verified IL modification in `Assembly-CSharp.dll`. The patch is gated on `Application.isBatchMode` and causes the headless client to call the embedded dedicated-server host.
+
+</Card>
+
+<Card title="Creates backups" icon="archive">
+
+Backs up original files before modification and records an undo journal for safe reversion.
+
+</Card>
+
+<Card title="Hash verification" icon="shield-check">
+
+Verifies that the expected original bytes are present before patching. The patcher refuses to continue when unexpected bytes are found.
+
+</Card>
+
+</Columns>
+
+## Commands
+
+<Steps>
+
+<Step title="Patch the game client">
+
+Run the setup script from the scripts directory:
+
+```powershell
+.\apply-dedicated-server-patch.ps1
+```
+
+To call the patcher directly, provide the Steam installation directory:
+
+```powershell
+slpatch.exe patch --install-dir "C:\Steam\smash-legends"
+```
+
+The patcher verifies the build, creates backups, installs `local-config.xml`, and applies the dedicated-server patch.
+
+</Step>
+
+<Step title="Verify the patch">
+
+Run the boot-contract verification script:
+
+```powershell
+.\verify-boot-contract.ps1
+```
+
+Or call the patcher directly:
+
+```powershell
+slpatch.exe verify --install-dir "C:\Steam\smash-legends"
+```
+
+Verification checks the patched installation and confirms that the expected boot changes are present.
+
+</Step>
+
+<Step title="Revert all changes">
+
+Run the unpatch script:
+
+```powershell
+.\unpatch.ps1
+```
+
+Or revert directly with the patcher:
+
+```powershell
+slpatch.exe revert --install-dir "C:\Steam\smash-legends"
+```
+
+The revert operation uses the undo journal and restores the backed-up files. Re-verify the game tree after the operation completes.
+
+</Step>
+
+<Step title="Launch the patched game">
+
+Start the patched client with:
+
+```powershell
+slpatch.exe launch --install-dir "C:\Steam\smash-legends"
+```
+
+The launch command uses the patched installation and starts the client in the configured environment.
+
+</Step>
+
+</Steps>
+
+## The IL patch
+
+The official client contains a dedicated-server implementation, but the relevant startup route is not normally reached during headless boot. The patcher installs a small IL modification that:
+
+- Activates only when `Application.isBatchMode` is true.
+- Causes the headless client to call the embedded `DedicatedServer.Host(...)`.
+- Uses the same undo journal as the configuration files.
+- Can be reverted without retaining the IL modification.
+
+<Callout kind="alert">
+
+The IL patch currently reaches the UDP bind and `GameBase` scene load. A complete end-to-end match is not yet verified because the worker's scene transition bypasses the normal configuration initialization path. A four-site IL fix was attempted but caused a native crash, so it is not included in the shipped patch.
+
+</Callout>
+
+## Safety and reversibility
+
+<Callout kind="info">
+
+The patch process follows a strict safety protocol:
+
+1. Verifies the original manifest using SHA-256 hashes for all target files.
+2. Creates backups of all files before modification.
+3. Records an undo journal containing every change.
+4. Applies only expected modifications.
+5. Reports which files changed.
+6. Supports reverting and re-verifying the game tree at any time.
+
+</Callout>
+
+The patcher never modifies a game build that does not match the expected hashes. If Steam updates the game, re-verify the build before applying the patch again.
+
+## local-config.xml
+
+The main integration mechanism is a generated `local-config.xml`. The game reads this file from its working directory and deserializes it into the client's `ConfigSegment` model. The file overrides remote configuration and points the client to the private backend.
+
+The patcher generates `local-config.xml` from the settings in `server-config.json`.
+
+### Configuration fields
+
+<ParamField body="server address and port" param-type="string" show-location="false">
+
+The backend address and port advertised to game clients. These values correspond to the server's `advertised` settings.
+
+</ParamField>
+
+<ParamField body="master data URL prefix" param-type="string" show-location="false">
+
+The URL prefix the client uses to retrieve master data.
+
+</ParamField>
+
+<ParamField body="API endpoint base URLs" param-type="string" show-location="false">
+
+The base URLs for the private server's HTTP API endpoints.
+
+</ParamField>
+
+<ParamField body="stage identifier" param-type="string" show-location="false">
+
+The deployment stage reported to the client.
+
+</ParamField>
+
+## Next steps
+
+<Columns cols={2}>
+
+<Card title="Setup Guide" href="/guides/setup" icon="book-open">
+
+Follow the full server setup walkthrough, including backend configuration and required game files.
+
+</Card>
+
+<Card title="Match Configuration" href="/config/match-config" icon="settings">
+
+Configure match rules, worker processes, ports, and related server settings.
+
+</Card>
+
+</Columns>

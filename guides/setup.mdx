@@ -1,0 +1,265 @@
+---
+title: "Setup Guide"
+description: "Complete walkthrough for setting up the SMASH LEGENDS private server — from prerequisites and game installation to patching, launching, and verifying your first connection."
+---
+
+## Setup the private server
+
+This guide walks through the full setup process for the SMASH LEGENDS private server. You will prepare your environment, build the server, extract game metadata, patch the official client, launch the server, and verify the client connects successfully.
+
+## Prerequisites
+
+<Callout kind="info">
+
+Before you begin, prepare a Windows computer with:
+
+- [ ] **Windows 10 or 11.** The server uses Windows' built-in SQLite library through P/Invoke.
+- [ ] **.NET 10 SDK.**
+- [ ] **PowerShell 5.1 or later.**
+- [ ] **Steam with SMASH LEGENDS installed.** The supported Steam app ID is `1352080`, and the pinned game build uses Unity `2022.3.62f3`.
+- [ ] **Git** for cloning the repository.
+
+</Callout>
+
+## Step 1: Clone and build
+
+Build the server before modifying the game installation. The build produces the HTTP backend, admin console, and patcher used in later steps.
+
+<Steps>
+<Step title="Clone the repository">
+
+```bash
+git clone https://github.com/PNY92/smash-legends-private-server.git
+cd smash-legends-private-server
+```
+
+After cloning, your terminal is in the repository root.
+
+</Step>
+
+<Step title="Build the solution">
+
+```bash
+dotnet build SmashLegends.sln -c Release
+```
+
+The build compiles `SmashLegends.Server`, `SmashLegends.Admin`, and `SmashLegends.Patcher`. A successful build ends without errors and creates the release binaries.
+
+</Step>
+</Steps>
+
+## Step 2: Extract game metadata
+
+The server needs the master-data blob from your local Steam installation. The patcher also checks that the installed game matches the supported build before it changes any files.
+
+<Steps>
+<Step title="Locate your Steam installation">
+
+Find the SMASH LEGENDS installation directory in Steam. SMASH LEGENDS uses Steam app ID `1352080`.
+
+The patcher verifies the following files with SHA-256 hashes:
+
+- `Smash_Legends.exe`
+- `UnityPlayer.dll`
+- `Smash_Legends_Data/Managed/Assembly-CSharp.dll`
+
+The pinned game build uses Unity `2022.3.62f3`. The patcher refuses to operate on unexpected builds.
+
+</Step>
+
+<Step title="Extract metadata.bin">
+
+Use the tools in `_work/tools/` to extract the master-data blob from your game installation. Place the resulting file at:
+
+```text
+data/masterdata/metadata.bin
+```
+
+Confirm that the file exists at that exact path before continuing.
+
+</Step>
+</Steps>
+
+<Callout kind="alert">
+
+The `metadata.bin` file is not committed to the repository. It must come from your own Steam installation. Do not share or redistribute this file.
+
+</Callout>
+
+## Step 3: Run the setup script
+
+The setup script checks the game installation, creates build manifests, and prepares the files required by the server and patcher.
+
+<Steps>
+<Step title="Run setup-private-server.ps1">
+
+From the repository root, run:
+
+```powershell
+cd scripts
+.\setup-private-server.ps1
+```
+
+The script verifies the expected game build hashes, generates manifests, and prepares the configuration files. Continue only if the script completes without reporting a verification failure.
+
+</Step>
+
+<Step title="Verify configuration">
+
+Check that `config/server-config.json` exists, then review the default settings. The initial configuration uses:
+
+- **HTTP port:** `18080`
+- **Database:** `data/smashlegends.db`
+- **Concurrent matches:** `1`
+- **Bots:** enabled at `level_2` difficulty
+
+Relative paths are resolved from the configured content root. The database is created when the server starts.
+
+</Step>
+</Steps>
+
+## Step 4: Patch the game client
+
+The patcher installs the local server configuration and enables the official client's headless dedicated-server path. It only modifies an expected game build and records changes so they can be reverted.
+
+<Steps>
+<Step title="Apply the dedicated-server patch">
+
+From the `scripts` directory, run:
+
+```powershell
+.\apply-dedicated-server-patch.ps1
+```
+
+The script installs `local-config.xml` in the game directory and applies the IL patch that enables headless dedicated-server mode. The command reports the files it changed.
+
+</Step>
+
+<Step title="Verify the patch">
+
+Run the boot-contract verification script:
+
+```powershell
+.\verify-boot-contract.ps1
+```
+
+A successful verification confirms that the expected patched files and configuration are present.
+
+</Step>
+</Steps>
+
+<Callout kind="info">
+
+The patch is fully reversible. To revert all changes, run:
+
+```powershell
+.\unpatch.ps1
+```
+
+The patcher maintains backups and an undo journal so you can restore the original game files.
+
+</Callout>
+
+## Step 5: Launch the server
+
+Start the HTTP backend before launching the patched game. The backend handles authentication, profiles, master data, matchmaking, lobbies, and match-worker supervision.
+
+<Steps>
+<Step title="Start the HTTP backend">
+
+From the `scripts` directory, run:
+
+```powershell
+.\run-server.ps1
+```
+
+The server listens on port `18080`. Check the health endpoint in a browser or PowerShell:
+
+```text
+http://localhost:18080/health
+```
+
+A successful response includes the server time, stage, schema version, uptime, and an `ok` flag set to `true`.
+
+</Step>
+
+<Step title="Start the admin console (optional)">
+
+Open a separate PowerShell window, change to the repository's `scripts` directory, and run:
+
+```powershell
+.\admin-console.ps1
+```
+
+Use the admin console to create accounts, manage players, inspect matches, change configuration, back up the database, and monitor server activity.
+
+</Step>
+</Steps>
+
+## Step 6: Connect the game client
+
+With the backend running and the game patched, launch the official client through Steam. The client reads `local-config.xml` and uses the private server endpoints instead of the production backend.
+
+<Steps>
+<Step title="Launch the patched game">
+
+Start SMASH LEGENDS from Steam. The patched client reads the local configuration and connects to the private server.
+
+</Step>
+
+<Step title="Verify the connection">
+
+Watch the server console for incoming requests. A successful first connection should show the client:
+
+- Requesting master data.
+- Signing up or authenticating.
+- Loading the player profile.
+- Reaching the lobby.
+
+These checks confirm that the local configuration, master data, authentication, and profile endpoints are working.
+
+</Step>
+
+<Step title="Start a match">
+
+Use the client shortcuts to test the development host path:
+
+- Press `H` to start a host.
+- Press `C` to join a development host.
+
+The server allocates a match and launches an official game worker for the dedicated-server process.
+
+</Step>
+</Steps>
+
+<Callout kind="tip">
+
+If the client cannot connect, verify that:
+
+- `local-config.xml` exists in the game directory.
+- The server is running and reachable on port `18080`.
+- `advertised.address` in `config/server-config.json` matches your network setup.
+- The game build matches the expected SHA-256 hashes.
+- Firewall rules allow traffic on ports `18080` and `30000` through `30010`.
+
+For more help, see the Troubleshooting section in the Help Center.
+
+</Callout>
+
+## Next steps
+
+<Columns cols={2}>
+
+<Card title="Configuration" href="/config/server-config" icon="settings">
+
+Fine-tune server, match, and rewards settings.
+
+</Card>
+
+<Card title="Admin Console" href="/guides/admin-console" icon="terminal">
+
+Learn the admin console commands.
+
+</Card>
+
+</Columns>

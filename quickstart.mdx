@@ -1,58 +1,104 @@
 ---
 title: Quickstart
-description: Minimal steps to customize this sample starter kit.
+description: Get the SMASH LEGENDS private server running — from .NET SDK install to patching the game client and launching your first session.
 ---
-## Overview
 
-<Callout kind="alert" collapsed="false">
-  This site ships with placeholder content. Use this quickstart to replace it with your real product docs.
+## Quickstart
+
+Get a private SMASH LEGENDS server running on your Windows machine in under 30 minutes. You will install the .NET 10 SDK, build the server, extract game metadata, patch the official client, and launch the server.
+
+## Prerequisites
+
+<Callout kind="info">
+
+- Windows 10 or 11. The server uses Windows' built-in SQLite through P/Invoke.
+- .NET 10 SDK installed.
+- Steam installation of SMASH LEGENDS with Steam app ID `1352080` and Unity version `2022.3.62f3`.
+- PowerShell 5.1 or later.
+- The repository cloned to your local machine.
+
 </Callout>
 
-## 1. Update a page
+## Setup steps
 
 <Steps>
-  <Step title="Edit introduction" icon="edit" title-type="p">
-    Replace the sample introduction with a concise overview of your product and the key actions you want new users to take first.
+  <Step title="Build the server" icon="terminal">
+
+Run the build from the repository root:
+
+```bash
+dotnet build SmashLegends.sln -c Release
+```
+
+This compiles `SmashLegends.Server`, `SmashLegends.Admin`, and `SmashLegends.Patcher`.
+
   </Step>
 
-  <Step title="Preview your change" icon="monitor" title-type="p">
-    Use your dashboard board editor to confirm the updated introduction looks and reads as expected.
+  <Step title="Extract game metadata" icon="package">
+
+The server requires a `metadata.bin` file extracted from your own SMASH LEGENDS installation. Use the tools in `_work/tools/` to extract the file, then place it at `data/masterdata/metadata.bin`.
+
+The file is not committed to the repository. It must come from your own game installation.
+
+  </Step>
+
+  <Step title="Run the setup script" icon="play">
+
+From the `scripts/` directory, run:
+
+```powershell
+.\setup-private-server.ps1
+```
+
+The script verifies the game build, generates manifests, and prepares the configuration.
+
+  </Step>
+
+  <Step title="Patch the game client" icon="wrench">
+
+Apply the dedicated-server patch and install `local-config.xml`:
+
+```powershell
+.\apply-dedicated-server-patch.ps1
+```
+
+The patch modifies the official client to redirect to your private server. The patch is hash-verified and fully reversible with `unpatch.ps1`.
+
+  </Step>
+
+  <Step title="Launch the server" icon="server">
+
+Start the HTTP backend:
+
+```powershell
+.\run-server.ps1
+```
+
+The server listens on port `18080` by default. Start the admin console separately with `admin-console.ps1` when you need administrative controls.
+
+  </Step>
+
+  <Step title="Connect the game client" icon="gamepad">
+
+Launch the patched SMASH LEGENDS client. The client reads `local-config.xml` and connects to your private server.
+
+Press `H` to start a host or `C` to join a development host.
+
   </Step>
 </Steps>
-
-## 2. Add a new page
-
-<Steps>
-  <Step title="Add a page" icon="file-text" title-type="p">
-    Create a new `page` by clicking on the + button from the left navigation bar of dashboard. If you are using git, create the .mdx file and add to navigation bar using documentation.json
-  </Step>
-</Steps>
-
-## Example onboarding flow (replace with yours)
-
-1. Sign up for an account and verify your email.
-
-2. Create your first workspace, project, or environment.
-
-3. Add one integration or data source to connect your existing tools.
-
-4. Complete a guided action (for example, run your first job or publish your first resource).
-
-5. Invite a teammate and assign a basic role or permission.
-
-## 3. Connect API Reference (optional)
-
-If you have an API, replace `openapi.yaml` with your real OpenAPI file. If you do not need an API reference, remove that tab either from dashboard or  `documentation.json`.
 
 ## Next steps
 
-<Columns cols="2">
-  <Card title="Core Concepts" href="/concepts" icon="layers" horizontal="false">
-    Keep the mental model simple and easy to scan.
+<Columns cols={2}>
+  <Card title="Configuration" href="/config/server-config" icon="settings">
+
+Tune server settings, match rules, and rewards.
+
   </Card>
 
-  <Card title="Authentication" href="/authentication" icon="lock" horizontal="false">
-    Add your real auth flows and security notes.
+  <Card title="Setup Guide" href="/guides/setup" icon="book-open">
+
+Follow the full walkthrough, including troubleshooting tips.
+
   </Card>
 </Columns>
-

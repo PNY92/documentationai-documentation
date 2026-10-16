@@ -1,0 +1,126 @@
+---
+title: Common Issues
+description: Solve common problems with the SMASH LEGENDS private server — build failures, connection issues, configuration errors, and game client problems.
+---
+
+## Troubleshoot common problems
+
+Use the fixes below for issues encountered while building, configuring, or running the SMASH LEGENDS private server. Each section starts with the most likely cause and the verified action to resolve it.
+
+<ExpandableGroup>
+<Expandable title="Build fails with .NET SDK errors">
+
+The server targets .NET 10. Check the installed SDK version:
+
+```bash
+dotnet --version
+```
+
+If the version is below `10.0`, install the .NET 10 SDK from Microsoft. Then clean and rebuild the solution:
+
+```bash
+dotnet clean SmashLegends.sln
+dotnet build SmashLegends.sln -c Release
+```
+
+A successful build completes without SDK target errors and produces the server and admin binaries in the Release output directories.
+
+</Expandable>
+
+<Expandable title="Patcher refuses to patch the game">
+
+The patcher verifies SHA-256 hashes for `Smash_Legends.exe`, `UnityPlayer.dll`, and `SmashLegends_Data/Managed/Assembly-CSharp.dll`. The hashes must match the pinned build, which uses Unity `2022.3.62f3` and Steam app ID `1352080`.
+
+If Steam updated the game, the hashes no longer match the expected build. Verify the game files through Steam to restore the expected build, then run the patcher again.
+
+If the game has been permanently updated past the pinned version, the repository's expected hashes must be updated before the patcher can support that build. Do not bypass the hash check.
+
+</Expandable>
+
+<Expandable title="Client cannot connect to the server">
+
+Check the server and client configuration in this order.
+
+- Confirm that the server is running and that the health endpoint responds at [`http://localhost:18080/health`](http://localhost:18080/health).
+- Confirm that `local-config.xml` exists in the game directory.
+- Check that `advertised.address` in `server-config.json` matches the address clients use to reach the server. Use the server's LAN IP for non-local clients instead of `127.0.0.1`.
+- Confirm that Windows Firewall allows traffic on the configured HTTP port, normally `18080`.
+- Check that `join.access` is not set to `closed`. The `closed` value rejects authenticated game API traffic.
+
+If the health endpoint works locally but another device cannot connect, check `advertised.address` and the firewall before changing application settings.
+
+</Expandable>
+
+<Expandable title="Client gets stuck at the tutorial">
+
+The default configuration marks all tutorials as complete. Check the following values in `server-config.json`:
+
+- `tutorial.autoComplete` must be `true`.
+- `tutorial.completedTypes` must include `ControlTutorial`, `RuleTutorial`, and `PlayTutorial`.
+
+After correcting the configuration, reload it from the admin console:
+
+```text
+config reload
+```
+
+Restart the client after the reload and sign in again. The client should proceed past the Play tutorial instead of waiting for tutorial completion.
+
+</Expandable>
+
+<Expandable title="Database errors on startup">
+
+The server creates the SQLite database automatically on its first run. If startup reports database errors, check the directory configured by `database.path`.
+
+- Confirm that the parent directory exists and is writable.
+- Confirm that the `data/` directory is not read-only.
+- Check that another process is not locking the database files.
+- Use the admin console's `backup` command before making recovery changes.
+
+<Callout kind="alert">
+
+If the database is corrupted, back it up first, then delete the database file. The server recreates the database on the next start, but deleting it removes the current local data.
+
+</Callout>
+
+After creating a backup, check the configured backup directory to confirm that the backup completed before removing the database.
+
+</Expandable>
+
+<Expandable title="Sign-in returns 401 or session errors">
+
+Check authentication state and JWT configuration.
+
+- Keep `auth.jwtSecret` consistent. Changing it invalidates all existing tokens.
+- Confirm that the session has not been revoked by an admin kick or ban.
+- Set `auth.jwtLifetimeSeconds` to a sufficiently long value. The client rejects short-lived tokens during its local expiration check.
+- Verify that the account exists in the database.
+
+If the error started immediately after changing `auth.jwtSecret`, sign out and sign in again after confirming the new configuration is valid. Existing tokens cannot be repaired because they were signed with the previous secret.
+
+</Expandable>
+
+<Expandable title="Unmapped route 404 errors">
+
+The server records unmapped routes when the client requests an endpoint that does not have an implemented handler. Review the reports in `_work/logs/server/`.
+
+The default `logging.unmappedRoutePolicy` value is `not-found`, which returns HTTP `404`. The client treats unexpected `404` responses as hard failures, so keep this policy for normal operation.
+
+For diagnostics, temporarily set `logging.unmappedRoutePolicy` to `empty-200`. The server then returns an empty successful response for unmapped routes, which can help identify whether a missing endpoint is blocking client startup. Review the unmapped route report to determine which endpoint the client requested before deciding whether the response is safe to support.
+
+</Expandable>
+
+<Expandable title="Server starts but no requests arrive">
+
+Check whether the client is configured to use the private server and whether the server is reachable.
+
+- Confirm that the client reads `local-config.xml` from the game directory.
+- Confirm that the dedicated-server patch was applied successfully.
+- Verify that the server is listening on the expected address and port.
+- If `listen.address` is `0.0.0.0`, the server accepts connections on all interfaces. Check Windows Firewall when requests still do not arrive.
+- Run `verify-boot-contract.ps1` to confirm the patched state.
+
+A local health request confirms that the HTTP server is alive, but it does not confirm that the game client loaded the private-server configuration. If the health endpoint responds and the request log remains empty during client startup, inspect `local-config.xml`, the patch state, and the client working directory.
+
+</Expandable>
+</ExpandableGroup>
