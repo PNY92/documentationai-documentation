@@ -1,0 +1,340 @@
+---
+title: "Custom Matches"
+description: "Create, configure, and start private SMASH LEGENDS matches using the band room system, share room IDs, manage bots, and connect players."
+---
+
+## Create and join a custom match
+
+Use the band room system to create a private lobby, configure its arena and roster, invite players with a room ID, and start matchmaking.
+
+## Prerequisites
+
+<Callout kind="info">
+
+Before you start, confirm that you have:
+
+- A running server on port `18080`
+- A patched game client
+- An authenticated player account
+- At least two game clients for multiplayer testing
+
+</Callout>
+
+## How custom matches work
+
+Custom matches use persistent band rooms managed by the server's lobby system. Each room receives a random 12-character hexadecimal room ID. The room ID identifies the lobby and acts as the join code.
+
+The available room types are:
+
+- **Party:** `1`
+- **Practice:** `2`
+
+The default roster has two teams of three players:
+
+- **Team 1:** seats `0` through `2`
+- **Team 2:** seats `3` through `5`
+
+Bots fill unused seats by default. With two players in the default six-seat roster, the server normally adds four bots.
+
+<Callout kind="tip">
+
+Share the room ID directly with players who should join. The server does not create a separate invitation code, and rooms do not have password protection.
+
+</Callout>
+
+## Create a custom room
+
+Create a room with `POST /api/v1/band_room/create`. The request selects the room type, arena settings, and the creator's character.
+
+<Steps>
+<Step title="Choose the room type">
+
+Select either a Party room or a Practice room:
+
+- Party: `roomType: 1`
+- Practice: `roomType: 2`
+
+Use Party for a standard private match. Use Practice when the client needs the practice variant of the band room flow.
+
+</Step>
+
+<Step title="Select the arena">
+
+Choose the arena values used when the match is allocated:
+
+- `arenaSlotId`: The arena slot selected by the client
+- `mapId`: The numeric map identifier
+- `ruleId`: The match rule identifier
+- `fairPlayMode`: The fair-play setting, or `null` when unused
+
+The default configuration uses map ID `1`, rule ID `3`, and CapturePoint mode ID `3`. Map ID `1` corresponds to `capturepoint_pirate_01`.
+
+</Step>
+
+<Step title="Pick a character">
+
+Provide the creator's character selection when creating the room. The selection can include the character ID, level, skin, emoticons, fashion items, and banned character IDs.
+
+</Step>
+
+<Step title="Create the room">
+
+Send the create request. The server generates a random 12-character room ID, makes you the host, places you in seat `0`, and sets the room state to `lobby`.
+
+The server also fills unused seats with bots when bot filling is enabled. Keep the returned room ID because other players use it to join.
+
+</Step>
+</Steps>
+
+A room normally moves through these states:
+
+```text
+lobby -> ticket -> battle
+```
+
+The current HTTP implementation reliably handles the `lobby` and `ticket` transitions. The room model exposes `battle`, but the complete battle transition is not fully implemented.
+
+## Share the room ID
+
+The room ID is the working invitation method. Send it to each player who should join, then have them use the join-by-ID endpoint.
+
+The social invitation endpoints exist at:
+
+```text
+POST /api/v1/band_social/invite
+POST /api/v1/band_social/reject
+```
+
+These endpoints are compatibility stubs. They authenticate and accept requests, but they do not deliver notifications, store invitations, or add players to the room. Share the room ID directly instead.
+
+## Join a custom room
+
+You can join a known room by ID or ask the server to find an open room.
+
+<Steps>
+<Step title="Join by room ID">
+
+Call `POST /api/v1/band_room/join` with the room ID and your character selection.
+
+The server looks up the room, assigns the next available seat, stores your selected character, and returns the updated room model.
+
+</Step>
+
+<Step title="Join an open room when you do not have an ID">
+
+Call `POST /api/v1/band_room/join_open_room` to join the first suitable open room whose host is not your account.
+
+If no room is available, the server returns a `404`-style response with `no open room available`.
+
+</Step>
+
+<Step title="Select your character">
+
+Include a character selection when you join, or update it afterward through `POST /api/v1/band_member/character`.
+
+Changing your character sets your member state to `select_character`.
+
+</Step>
+
+<Step title="Confirm your seat">
+
+The server assigns a free seat when you join. Your seat determines your team:
+
+- Seats `0` through `2` belong to Team 1
+- Seats `3` through `5` belong to Team 2
+
+You can move your own member to another seat with `POST /api/v1/band_member/move` and a `keyDest` value.
+
+</Step>
+</Steps>
+
+## Configure the match as host
+
+Only the host can change the arena, manage bots, remove members, or transfer ownership. Open the current room with `GET /api/v1/band/current` or `GET /api/v1/band/get?roomId=<room-id>` while configuring it.
+
+<ExpandableGroup>
+<Expandable title="Change the arena">
+
+Call `POST /api/v1/band_moderator/arena` to update `arenaSlotId`, `mapId`, `ruleId`, and `fairPlayMode`.
+
+The room must have a host account that performs the request. The updated arena is stored on the room and used when the match ticket is allocated.
+
+</Expandable>
+
+<Expandable title="Modify bots">
+
+Call `POST /api/v1/band_moderator/bot` to set the bot roster, including each bot's ID, character, character level, and difficulty.
+
+When `bot.fill` is enabled, the server automatically fills unused capacity. The default difficulty is `level_2`.
+
+</Expandable>
+
+<Expandable title="Kick a member">
+
+Call `POST /api/v1/band_room/kick` to remove a player from the room.
+
+Only the current host can kick members. The server refreshes the room roster after the member leaves.
+
+</Expandable>
+
+<Expandable title="Delegate ownership">
+
+Call `POST /api/v1/band_room/delegate` to transfer host ownership to another current member.
+
+Use delegation before leaving when another player should continue managing the room.
+
+</Expandable>
+
+<Expandable title="Swap or set seats">
+
+Use `POST /api/v1/band_moderator/swap` to swap members between seats. Use `POST /api/v1/band_moderator/seat` to assign a seat explicitly.
+
+Seat placement determines team assignment. Place three players or bots in seats `0` through `2` for Team 1 and three in seats `3` through `5` for Team 2.
+
+</Expandable>
+</ExpandableGroup>
+
+## Select a character and ready up
+
+Each member selects a character independently, then changes their readiness state before the host starts the match.
+
+<Steps>
+<Step title="Choose your character">
+
+Call `POST /api/v1/band_member/character` with the room ID and character data.
+
+The server records the selection and sets your member state to `select_character`.
+
+</Step>
+
+<Step title="Toggle your ready state">
+
+Call `POST /api/v1/band_member/ready` with `ready: true` when you are ready to play. Send `ready: false` to return to the normal state.
+
+</Step>
+
+<Step title="Check member states">
+
+Read the current room model to confirm each member's state. The server serializes these states as lowercase strings:
+
+- `normal`
+- `ready`
+- `select_character`
+- `select_arena`
+- `offline`
+
+</Step>
+</Steps>
+
+## Start the match
+
+The host starts a band match with `POST /api/v1/band_match/start`. The request includes the room ID, the `band` policy, latency information, the competitive flag, and the mode ID.
+
+<Steps>
+<Step title="Start matchmaking from the room">
+
+Send the start request as the host. The server creates a matchmaking ticket, stores its ID on the room, and changes the room state from `lobby` to `ticket`.
+
+The response contains the `ticketId` that you need for polling.
+
+</Step>
+
+<Step title="Poll the ticket">
+
+Call `GET /api/ticket/describe?ticketId=<ticket-id>` until the ticket reaches a terminal state.
+
+The ticket can pass through these states:
+
+```text
+queued
+searching
+matching
+placing
+activating
+completed
+failed
+cancelled
+timedout
+```
+
+The normal successful path is:
+
+```text
+queued -> searching -> matching -> placing -> activating -> completed
+```
+
+</Step>
+
+<Step title="Continue only after completion">
+
+Wait for `status: completed` before connecting a client. A completed ticket includes the match connection details.
+
+If the ticket fails, is cancelled, or times out, stop the match or return to the room and start a new ticket after resolving the cause.
+
+</Step>
+</Steps>
+
+The default queue duration is three seconds, and the default ticket timeout is 120 seconds. Only one concurrent match is allowed by the default server configuration, so a ticket can remain in `matching` while another match is active.
+
+## Connect to the game
+
+When the ticket reaches `completed`, the client receives the connection information required to enter gameplay:
+
+- IP address
+- UDP port
+- Security key
+- Match ID
+- Player session ID
+- Map and mode information
+
+The client uses the returned address and port to connect directly to the configured dedicated-server worker over UDP. The completed ticket can also include server properties such as the allocation ID, map ID, mode ID, rule ID, queue type, and region.
+
+The normal ticket allocation path points to the configured game server. It does not automatically spawn a dedicated worker process. Administrative worker spawning is a separate server-operator workflow.
+
+## Stop or leave a match
+
+Use `POST /api/v1/band_match/stop` with the room ID and ticket ID to stop matchmaking. The server cancels the ticket and returns the room to `lobby`.
+
+Use `POST /api/v1/band_room/leave` when a player leaves the room:
+
+- The leaving player is removed from the room.
+- If the host leaves while members remain, the first remaining member becomes host.
+- If the last member leaves, the server deletes the room.
+- The server refreshes bot filling after membership changes.
+
+The lobby sweeper also releases abandoned rooms after the configured idle timeout. The default idle timeout is 180 seconds, and room activity updates the room heartbeat.
+
+## Current limitations
+
+<Callout kind="alert">
+
+The current custom-match implementation has these limitations:
+
+- Rooms do not support password protection.
+- Social invitation endpoints are stubs and do not deliver invitations.
+- The room ID is the only custom-match code; no separate code system exists.
+- Per-member match reservations for all lobby members are not fully wired.
+- Full battle-start and battle-finish HTTP handling is incomplete.
+- The out-game WebSocket application protocol is not fully implemented.
+
+</Callout>
+
+The server can create and manage the room, allocate a ticket, and return connection data, but the complete in-game synchronization and battle result lifecycle is not yet exposed through the custom-match HTTP API.
+
+## Next steps
+
+<Columns cols={2}>
+
+<Card title="Match Configuration" href="/config/match-config" icon="settings">
+
+Review the server settings that control maps, modes, teams, bots, tickets, and worker allocation.
+
+</Card>
+
+<Card title="Two-Client Testing" href="/guides/two-client-testing" icon="users">
+
+Test room creation, joining, matchmaking, allocation, and client connectivity with two game clients.
+
+</Card>
+
+</Columns>

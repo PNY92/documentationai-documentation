@@ -79,6 +79,11 @@
                 "title": "Two-Client Testing",
                 "path": "guides/two-client-testing",
                 "icon": "users"
+              },
+              {
+                "title": "Custom Matches",
+                "path": "guides/custom-match",
+                "icon": "gamepad-2"
               }
             ]
           }
