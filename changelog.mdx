@@ -7,6 +7,26 @@ description: Track the development progress and milestones of the SMASH LEGENDS 
 
 The SMASH LEGENDS private server is an active project under development. This changelog tracks major milestones, verified features, and known limitations as the project evolves.
 
+<Update label="Auto-Host Custom Matches" description="Automatic worker spawning, readiness checks, and independent sessions" tags={["feature", "custom-matches", "worker", "authentication"]}>
+
+## Added
+
+- **Automatic worker spawning:** When a player starts a custom match, the server automatically spawns a dedicated game worker via `MatchWorkerSupervisor.Spawn()` when `worker.enabled` is `true`. No manual host startup is required.
+- **Worker readiness check:** After flushing the HTTP match-start response, the server polls the worker's UDP port every 500 ms for up to 180 seconds using `WaitUntilListeningAsync()`. The `band_game_start` event is only published after the port is confirmed listening.
+- **Startup timeout handling:** If the worker does not bind within 180 seconds, the server terminates the worker, stops the match, and logs an error.
+- **Port reservation and collision detection:** The supervisor reserves UDP ports before spawning, checks for OS-level port conflicts, and releases reservations on spawn failure, worker termination, or unexpected process exit.
+- **Serialized spawning:** `Spawn()` uses a `_spawnGate` lock to prevent concurrent spawn conflicts.
+- **Independent sessions:** Signing in no longer revokes previously issued sessions for the same account. This allows the dedicated worker (which signs in with the same Steam account as the player) to coexist with the player's active session.
+- **Session-based WebSocket auth:** WebSocket connections now validate a non-expired, non-revoked session record via `SessionRepository.FindByConnectionToken()` instead of comparing the account's current connection token.
+- **Worker cleanup on match stop:** `LobbyService.MatchStop` now terminates the associated worker process via `Workers.Terminate()`.
+
+## Removed
+
+- **Manual UDP port preflight check:** The server no longer rejects custom match starts when the configured UDP port is not already bound. The worker supervisor handles port allocation and readiness.
+- **Session revocation on sign-in:** `AccountService` no longer calls `Sessions.RevokeAllForUser()` during sign-in, allowing concurrent sessions for the same account.
+
+</Update>
+
 <Update label="Current Build" description="Private Server Backend" tags={["backend", "patcher", "admin"]}>
 
 ## Verified

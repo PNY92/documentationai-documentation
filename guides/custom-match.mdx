@@ -14,14 +14,14 @@ Use the band room system to create a private lobby, configure its arena and seat
   Before you start, confirm that you have:
 
   - A running server on port `18080`
-  - A configured local UDP host whose port is bound before match start
+  - Worker supervision enabled (`worker.enabled = true` in `server-config.json`)
   - A patched game client
   - An authenticated player account
   - At least two game clients for multiplayer testing
   - An authenticated out-game WebSocket connection using `user_uid` and `connectionToken`
 </Callout>
 
-The default UDP port is `30000`. The server rejects match start with HTTP `400` when the configured port is not bound. The error begins with `match host has not bound its configured UDP port 30000`.
+When worker supervision is enabled, the server automatically launches the dedicated game worker.
 
 ## How custom matches work
 
@@ -37,10 +37,10 @@ The server still accepts the legacy numeric ordinals for compatibility, but resp
 
 Practice rooms expose ten one-based seats:
 
-- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*****`6`** have role `player`
-- **Seats&#x20;****`7`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*****`10`** have role `spectator`
-- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*****`3`** belong to Team 1
-- **Seats&#x20;****`4`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*****`6`** belong to Team 2
+- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`6`** have role `player`
+- **Seats&#x20;****`7`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`10`** have role `spectator`
+- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`3`** belong to Team 1
+- **Seats&#x20;****`4`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`6`** belong to Team 2
 
 The only valid seat role slugs are `player` and `spectator`. The host is determined by the room's `HostUid`, not by a seat role.
 
@@ -360,33 +360,41 @@ Each member selects a character independently, then changes their readiness stat
 
 ## Start the match
 
-The host starts a standard custom match with `POST /api/v1/band_match/start`. The request validates the room, confirms that the configured UDP port is bound, creates an allocation for all room members, and immediately places the tickets.
+The host starts a standard custom match with `POST /api/v1/band_match/start`. When `worker.enabled` is `true`, the server automatically spawns a dedicated game worker, waits for it to bind its UDP port, and only then publishes the game-start event. No manual host startup is required.
 
 The match type for `/band_match/start` is `practice`. The related endpoint `/api/v1/band_match/start_practice_competitive` uses match type `competitive`.
 
 <Steps>
-  <Step title="Bind the configured UDP port" title-type="p">
-    Start the configured dedicated host and confirm that its local UDP port is bound. The default port is `30000`.
-
-    The server checks the binding before creating the match. If the port is not bound, the request fails with HTTP `400` and an error beginning with:
-
-    ```text
-    match host has not bound its configured UDP port 30000
-    ```
-  </Step>
-
   <Step title="Start matchmaking from the room" title-type="p">
     Send the start request as the host. The server validates that the room is startable, creates tickets for all room members against the same match allocation, and places them immediately.
 
-    Each member receives a distinct `playerSessionId`. The response event type is `band_game_start`, and the event includes `arena_update`, `seat_update`, and `member_update` commands.
+    When `worker.enabled` is `true`, the server spawns a dedicated game worker via `MatchWorkerSupervisor.Spawn()`, assigning it an available UDP port from the configured range. If the worker fails to spawn, the server cancels the match and returns an error.
+  </Step>
+
+  <Step title="Worker readiness check" title-type="p">
+    After the HTTP match-start response is flushed, the server waits for the worker to bind its UDP port. It polls the port every 500 milliseconds for up to 180 seconds using `WaitUntilListeningAsync()`.
+
+    The `band_game_start` event is only published to room members after the worker's UDP port is confirmed listening. This prevents clients from attempting to connect before the game server is ready.
+  </Step>
+
+  <Step title="Handle startup timeout" title-type="p">
+    If the worker does not bind within the 180-second startup timeout, the server terminates the worker process, stops the match, and logs an error. The room returns to `lobby` state and the host can try starting the match again.
+
+    <Callout kind="alert" collapsed="false">
+      A startup timeout usually means the game executable failed to initialize. Check the worker log under `_work/logs/match-workers/` for errors, and verify that `worker.installDirectory` and `worker.processPath` point to a valid game installation.
+    </Callout>
   </Step>
 
   <Step title="Process the game-start event" title-type="p">
-    The server publishes a game-start event to each connected room member. Each member receives that member's own ticket ID and player session details.
+    Once the worker is ready, the server publishes a `band_game_start` event to each connected room member. Each member receives that member's own ticket ID and player session details.
 
     Apply the event commands before connecting the client to gameplay. Do not assume that every member can reuse the host's ticket or session ID.
   </Step>
 </Steps>
+
+<Callout kind="tip" collapsed="false">
+  Port reservation and collision detection are handled automatically. The supervisor reserves the UDP port before spawning, checks for OS-level port conflicts, and releases the reservation on spawn failure, worker termination, or unexpected process exit.
+</Callout>
 
 The ticket state model still includes:
 
@@ -446,7 +454,7 @@ The completed ticket and `band_game_start` event provide the connection informat
 
 The client uses the returned address and port to connect to the configured dedicated-server worker over UDP. The completed ticket can also include allocation properties such as the worker allocation ID, map ID, mode ID, rule ID, queue type, and region.
 
-The normal ticket path points to the configured game server. It does not automatically spawn a dedicated worker process. Administrative worker spawning remains a separate server-operator workflow.
+When `worker.enabled` is `true`, the server automatically spawns and supervises the dedicated worker process. The connection details in the completed ticket point to the auto-spawned worker's address and port.
 
 ## Connect to the out-game WebSocket
 
@@ -456,7 +464,7 @@ The out-game WebSocket requires both `user_uid` and `connectionToken` query para
 /ws?user_uid=account_42&connectionToken=token_example_8d21
 ```
 
-The server checks the supplied token against the account's stored connection token. Unauthorized sockets receive HTTP `401`.
+The server validates the supplied credentials against a live, non-expired, non-revoked session record. Unauthorized sockets receive HTTP `401`.
 
 After authentication, the server publishes `BandUpdateEvent` messages for room mutations and `BandGameStartEvent` messages when the match starts. Connected room members receive their own game-start data, including their individual ticket ID and `playerSessionId`.
 
@@ -475,7 +483,7 @@ Use `POST /api/v1/arena_schedule/token/create` to create matchmaking tokens for 
 
 ## Stop or leave a match
 
-Use `POST /api/v1/band_match/stop` with the room ID and ticket ID to stop matchmaking. The server cancels the ticket and returns the room to `lobby` when the match is still stoppable.
+Use `POST /api/v1/band_match/stop` with the room ID and ticket ID to stop matchmaking. The server cancels the ticket, terminates any associated dedicated worker process, and returns the room to `lobby` when the match is still stoppable.
 
 Use `POST /api/v1/band_room/leave` when a player leaves the room:
 

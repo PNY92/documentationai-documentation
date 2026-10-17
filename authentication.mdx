@@ -72,12 +72,30 @@ The server groups endpoints into four security tiers:
 
 ## Session management
 
-The server tracks authenticated sessions in the `sessions` database table. A session can be revoked by the following operations:
+The server tracks authenticated sessions in the `sessions` database table. Sessions are now independent: signing in does not revoke previously issued sessions for the same account. This allows the dedicated game worker — which signs in using the same Steam account as the player — to coexist with the player's active session without invalidating the player's JWT or out-game WebSocket connection.
+
+<Callout kind="info">
+
+Multiple concurrent sessions per account are supported. Each session has its own connection token, expiry, and revocation state. The server validates each session independently on every private endpoint and WebSocket connection.
+
+</Callout>
+
+A session can be revoked by the following operations:
 
 - **Account deletion:** `POST /api/v1/user/leave`
 - **Admin kick:** `POST /admin/account/kick`
 - **Admin ban:** `POST /admin/account/ban`
 - **Server restart:** Sessions are reconciled when the server restarts.
+
+## WebSocket authentication
+
+The out-game WebSocket connection (`/ws`) requires both `user_uid` and `connectionToken` query parameters. The server validates the credentials by looking up a live, non-expired, non-revoked session record via `SessionRepository.FindByConnectionToken()` — it no longer compares the token against the account's current connection token directly.
+
+This means:
+
+- A WebSocket connection remains valid as long as its session is live, even if another session was issued for the same account afterward.
+- Each session's connection token is independent, so multiple WebSocket connections for the same account can coexist.
+- Expired or revoked sessions are rejected with HTTP `401`.
 
 ## Example: Sign in with dev provider
 

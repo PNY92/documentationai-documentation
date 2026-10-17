@@ -1,8 +1,9 @@
 ---
-title: "Admin Console"
-description: "Manage the SMASH LEGENDS private server through the terminal admin console: create accounts, manage players, control matches, and back up data."
+title: Admin Console
+description: >-
+  Manage the SMASH LEGENDS private server through the terminal admin console:
+  create accounts, manage players, control matches, and back up data.
 ---
-
 ## Admin console
 
 The `SmashLegends.Admin` console is an interactive terminal that calls loopback-only `/admin/*` API endpoints on the server. Use it to create accounts, manage players, start and stop matches, change configuration, and back up the database.
@@ -17,10 +18,8 @@ The console must run on the same machine as the server because admin endpoints r
 
 ## Security
 
-<Callout kind="info">
-
-All admin endpoints are loopback-only and reject connections from non-loopback peers. If `join.adminToken` is configured, clients must also provide the token through the `x-admin-token` header or the `?token=` query parameter. Every mutation is written to `_work/logs/server/admin-audit.jsonl`.
-
+<Callout kind="info" collapsed="false">
+  All admin endpoints are loopback-only and reject connections from non-loopback peers. If `join.adminToken` is configured, clients must also provide the token through the `x-admin-token` header or the `?token=` query parameter. Every mutation is written to `_work/logs/server/admin-audit.jsonl`.
 </Callout>
 
 ## Commands
@@ -28,170 +27,136 @@ All admin endpoints are loopback-only and reject connections from non-loopback p
 Use the command groups below to inspect server state and perform administrative actions.
 
 <ExpandableGroup>
+  <Expandable title="status" default-open="false">
+    Displays server status, including uptime, active matches, player count, and database state.
+  </Expandable>
 
-<Expandable title="status">
+  <Expandable title="players" default-open="false">
+    Lists all players on the server with their account IDs, names, levels, and online status.
+  </Expandable>
 
-Displays server status, including uptime, active matches, player count, and database state.
+  <Expandable title="matches" default-open="false">
+    Lists active and recent matches with match IDs, participants, and worker status.
+  </Expandable>
 
-</Expandable>
+  <Expandable title="shutdown" default-open="false">
+    Gracefully shuts down the server and terminates any active match workers.
+  </Expandable>
 
-<Expandable title="players">
+  <Expandable title="account create" default-open="false">
+    Creates a new account.
 
-Lists all players on the server with their account IDs, names, levels, and online status.
+    Provider type for the account.
 
-</Expandable>
+    Optional display name for the account.
+  </Expandable>
 
-<Expandable title="matches">
+  <Expandable title="account kick" default-open="false">
+    Disconnects a player from the server.
 
-Lists active and recent matches with match IDs, participants, and worker status.
+    Account identifier for the player to disconnect.
+  </Expandable>
 
-</Expandable>
+  <Expandable title="account ban" default-open="false">
+    Bans an account from connecting to the server.
 
-<Expandable title="shutdown">
+    Account identifier for the account to ban.
+  </Expandable>
 
-Gracefully shuts down the server and terminates any active match workers.
+  <Expandable title="account unban" default-open="false">
+    Removes a ban from an account and allows the account to connect again.
 
-</Expandable>
+    Account identifier for the account to unban.
+  </Expandable>
 
-<Expandable title="account create">
+  <Expandable title="player unlock" default-open="false">
+    Unlocks a character for a player.
 
-Creates a new account.
+    Account identifier for the player.
 
-<ParamField body="provider" param-type="string" required="true" show-location="false" enum="gamepot,steam,dev">Provider type for the account.</ParamField>
+    Character identifier to unlock.
+  </Expandable>
 
-<ParamField body="displayName" param-type="string" required="false" show-location="false">Optional display name for the account.</ParamField>
+  <Expandable title="player level" default-open="false">
+    Sets a player's character or account level.
 
-</Expandable>
+    Account identifier for the player.
 
-<Expandable title="account kick">
+    Level to assign.
+  </Expandable>
 
-Disconnects a player from the server.
+  <Expandable title="player currency" default-open="false">
+    Adjusts a player's currency balance.
 
-<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the player to disconnect.</ParamField>
+    Account identifier for the player.
 
-</Expandable>
+    Amount to apply to the player's currency balance.
+  </Expandable>
 
-<Expandable title="account ban">
+  <Expandable title="config show" default-open="false">
+    Displays the current server configuration, including listener, join, match, worker, database, and logging settings.
+  </Expandable>
 
-Bans an account from connecting to the server.
+  <Expandable title="config set" default-open="false">
+    Updates a configuration value by using a dotted path. For example, the following command changes the respawn delay to 10 seconds:
 
-<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the account to ban.</ParamField>
+    ```text
+    config set match.respawn.seconds 10
+    ```
 
-</Expandable>
+    Configuration changes are validated transactionally. If a value is invalid, the update is rejected and the previous configuration remains active.
+  </Expandable>
 
-<Expandable title="account unban">
+  <Expandable title="config reload" default-open="false">
+    Reloads the configuration from `server-config.json`.
+  </Expandable>
 
-Removes a ban from an account and allows the account to connect again.
+  <Expandable title="match start" default-open="false">
+    Starts a match and launches an official game executable as a dedicated-server worker.
+  </Expandable>
 
-<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the account to unban.</ParamField>
+  <Expandable title="match stop" default-open="false">
+    Stops an active match and terminates its worker process.
+  </Expandable>
 
-</Expandable>
-
-<Expandable title="player unlock">
-
-Unlocks a character for a player.
-
-<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the player.</ParamField>
-
-<ParamField body="characterId" param-type="integer" required="true" show-location="false">Character identifier to unlock.</ParamField>
-
-</Expandable>
-
-<Expandable title="player level">
-
-Sets a player's character or account level.
-
-<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the player.</ParamField>
-
-<ParamField body="level" param-type="integer" required="true" show-location="false">Level to assign.</ParamField>
-
-</Expandable>
-
-<Expandable title="player currency">
-
-Adjusts a player's currency balance.
-
-<ParamField body="accountId" param-type="string" required="true" show-location="false">Account identifier for the player.</ParamField>
-
-<ParamField body="amount" param-type="integer" required="true" show-location="false">Amount to apply to the player's currency balance.</ParamField>
-
-</Expandable>
-
-<Expandable title="config show">
-
-Displays the current server configuration, including listener, join, match, worker, database, and logging settings.
-
-</Expandable>
-
-<Expandable title="config set">
-
-Updates a configuration value by using a dotted path. For example, the following command changes the respawn delay to 10 seconds:
-
-```text
-config set match.respawn.seconds 10
-```
-
-Configuration changes are validated transactionally. If a value is invalid, the update is rejected and the previous configuration remains active.
-
-</Expandable>
-
-<Expandable title="config reload">
-
-Reloads the configuration from `server-config.json`.
-
-</Expandable>
-
-<Expandable title="match start">
-
-Starts a match and launches an official game executable as a dedicated-server worker.
-
-</Expandable>
-
-<Expandable title="match stop">
-
-Stops an active match and terminates its worker process.
-
-</Expandable>
-
-<Expandable title="backup">
-
-Creates a database backup in the configured backup directory. The default directory is `data/backups`.
-
-</Expandable>
-
+  <Expandable title="backup" default-open="false">
+    Creates a database backup in the configured backup directory. The default directory is `data/backups`.
+  </Expandable>
 </ExpandableGroup>
 
 ## Match worker supervision
 
-The admin console also supervises the dedicated-server processes used for matches. For each match, the supervisor manages the worker lifecycle and associates the process with the match record.
+The admin console also supervises the dedicated-server processes used for matches. When `worker.enabled` is `true`, the server automatically spawns a worker through `MatchWorkerSupervisor.Spawn()` as part of the custom match-start flow — manual worker startup is no longer required. For each match, the supervisor manages the worker lifecycle and associates the process with the match record.
 
 The supervisor:
 
 - Chooses an unused UDP worker port from the configured range, normally 30000 through 30010.
+- Reserves the port before spawning and checks for OS-level port conflicts via `IPGlobalProperties.GetActiveUdpListeners()`. Reservations are released on spawn failure, worker termination, or unexpected process exit.
+- Serializes spawning with a `_spawnGate` lock to prevent concurrent spawn conflicts.
 - Spawns the official game executable with headless arguments.
+- Polls the worker's UDP port every 500 ms for up to 180 seconds via `WaitUntilListeningAsync()`. If the worker does not bind within the timeout, it is terminated and the match is stopped.
 - Captures a per-match log file.
 - Records the process ID and log path.
 - Refreshes worker liveness checks.
 - Terminates dead or stale workers.
 - Releases matches after process failure.
 - Reconciles active matches after a server restart.
+- Terminates the associated worker when a match is stopped via `LobbyService.MatchStop`.
+
+<Callout kind="info" collapsed="false">
+  Worker spawning, port reservation, readiness polling, and cleanup now happen automatically during the custom match lifecycle. The admin console's `match start` and `match stop` commands trigger the same automatic spawning and termination flow.
+</Callout>
 
 Worker logs are stored under `_work/logs/match-workers` by default. The worker process uses the official executable in headless mode with arguments such as `-batchmode`, `-nographics`, and `-autoHost`.
 
 ## Next steps
 
-<Columns cols={2}>
+<Columns cols="2">
+  <Card title="Configuration" href="/config/server-config" icon="settings" horizontal="false">
+    Server configuration reference.
+  </Card>
 
-<Card title="Configuration" href="/config/server-config" icon="settings">
-
-Server configuration reference.
-
-</Card>
-
-<Card title="Match Configuration" href="/config/match-config" icon="settings">
-
-Match and worker settings.
-
-</Card>
-
+  <Card title="Match Configuration" href="/config/match-config" icon="settings" horizontal="false">
+    Match and worker settings.
+  </Card>
 </Columns>
