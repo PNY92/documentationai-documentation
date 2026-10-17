@@ -27,9 +27,9 @@ If Steam updates the game, the file hashes will no longer match and the patcher 
 
 <Expandable title="Can I play a complete match end-to-end?">
 
-Not yet. The backend coordinates matchmaking and launches a dedicated-server worker, but a complete match through the headless worker path has not been verified.
+Custom matches now enter a playable arena. Players can move, attack bots, and see bots move and fight back. The private match bridge handles map loading, roster preparation, and player connections automatically.
 
-The worker loads the `GameBase` scene, but its scene transition bypasses the normal configuration initialization path. This remains the main active blocker for demonstrating a complete match with connected players, bots, and persisted rewards.
+Match result submission and reward persistence have not been fully verified end-to-end. A complete two-client 3v3 match with persisted rewards remains the active verification target.
 
 </Expandable>
 
