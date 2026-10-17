@@ -12,7 +12,7 @@ The SMASH LEGENDS private server is an active project under development. This ch
 ## Added
 
 - **Automatic worker spawning:** When a player starts a custom match, the server automatically spawns a dedicated game worker via `MatchWorkerSupervisor.Spawn()` when `worker.enabled` is `true`. No manual host startup is required.
-- **Worker readiness check:** After flushing the HTTP match-start response, the server polls the worker's UDP port every 500 ms for up to 180 seconds using `WaitUntilListeningAsync()`. The `band_game_start` event is only published after the port is confirmed listening.
+- **Worker readiness check:** The HTTP match-start response completes immediately. The server then watches the worker's log for a `RosterReady` marker, which confirms the worker has loaded the map and prepared the roster. The `band_game_start` event is published only after this signal is received.
 - **Startup timeout handling:** If the worker does not bind within 180 seconds, the server terminates the worker, stops the match, and logs an error.
 - **Port reservation and collision detection:** The supervisor reserves UDP ports before spawning, checks for OS-level port conflicts, and releases reservations on spawn failure, worker termination, or unexpected process exit.
 - **Serialized spawning:** `Spawn()` uses a `_spawnGate` lock to prevent concurrent spawn conflicts.
@@ -24,6 +24,37 @@ The SMASH LEGENDS private server is an active project under development. This ch
 
 - **Manual UDP port preflight check:** The server no longer rejects custom match starts when the configured UDP port is not already bound. The worker supervisor handles port allocation and readiness.
 - **Session revocation on sign-in:** `AccountService` no longer calls `Sessions.RevokeAllForUser()` during sign-in, allowing concurrent sessions for the same account.
+
+</Update>
+
+<Update label="Private Match Bridge and Playable Arena" description="Cecil-based bridge, local account switching, playable custom matches with movement and bot combat" tags={["feature", "custom-matches", "bridge", "worker", "authentication"]}>
+
+## Added
+
+- **Private match bridge:** A Mono.Cecil-based rewriter injects a private-session boot path into the game assembly. When the worker is launched with `--private-session <session-file>`, the bridge loads the configured map, prepares human and bot roster entries, and handles player connections. The bridge is installed via `install-private-match-bridge.ps1` and removed via `unpatch.ps1`.
+- **Local account switching:** The patched client now displays an in-game account picker before login. Users can select a saved local profile, create a new one with a 1–16 character nickname, or continue with Steam. Each local profile has a stable independent device ID. Batch workers bypass the picker and sign in automatically.
+- **RosterReady readiness signal:** The worker reports readiness by writing a `RosterReady` marker to its log after loading the map and preparing the roster. The server watches for this marker instead of polling the UDP port, which was unreliable for sockets owned by a separate process.
+- **Asynchronous game-start event:** The `band_game_start` event is now published after the HTTP match-start response completes, so the client can process the event without the response blocking.
+- **Ticket-based allocation lookup:** Allocation and connection endpoints now accept a ticket ID in addition to a match ID, returning the correct per-player security key and session ID.
+- **Asset download skip:** Private workers skip external asset-download checks and use the local game installation's asset bundles directly.
+- **Band command corrections:** Custom-room mutations now return the correct command slot for each action. Previously, every mutation returned a generic seat update, causing character changes, ready states, arena changes, and bot updates to appear as silent no-ops in the client. Room sequence numbers now advance on every mutation.
+- **Physics restoration:** The bridge re-enables Unity physics simulation for private workers, allowing characters to move across the arena.
+- **Bot preservation:** The bridge prevents development bot cleanup from removing prepared bots during state transitions in private workers.
+
+## Verified
+
+- Worker loads the map and reports `RosterReady`
+- Client receives `band_game_start` and connects to the worker
+- Player enters the arena as their selected character
+- Player can move across the arena
+- Player can attack bots and bots fight back
+- Bots remain present throughout the match
+
+## Not yet verified
+
+- Two real clients completing a full 3v3 match
+- Match result submission and reward persistence
+- Second consecutive match accumulating rewards without duplicate credit
 
 </Update>
 
@@ -46,9 +77,8 @@ The SMASH LEGENDS private server is an active project under development. This ch
 
 ## Not yet verified
 
-- Complete real match through the headless worker path
-- Reliable two-client gameplay
-- Real 3v3 bot fill
+- Match result submission and reward persistence through custom matches
+- Two real clients completing a full 3v3 match
 - Completed match with persisted rewards
 - Second consecutive match proving complete worker/resource cleanup
 
@@ -62,6 +92,6 @@ The SMASH LEGENDS private server is an active project under development. This ch
 
 <Callout kind="info">
 
-The main blocker for end-to-end match completion is that the worker loads `GameBase` in a way that bypasses the interactive startup ladder responsible for initializing the client's launch configuration. A four-site IL fix was attempted but caused a native crash, so it was not included in the shipped patch.
+The private match bridge resolves the earlier `GameBase` scene-transition blocker by injecting a private-session boot path that loads the map and prepares the roster directly. The remaining work for end-to-end verification is match result submission, reward persistence, and full two-client 3v3 completion.
 
 </Callout>

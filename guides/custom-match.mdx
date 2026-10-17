@@ -37,10 +37,10 @@ The server still accepts the legacy numeric ordinals for compatibility, but resp
 
 Practice rooms expose ten one-based seats:
 
-- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`6`** have role `player`
-- **Seats&#x20;****`7`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`10`** have role `spectator`
-- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`3`** belong to Team 1
-- **Seats&#x20;****`4`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`6`** belong to Team 2
+- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`6`** have role `player`
+- **Seats&#x20;****`7`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`10`** have role `spectator`
+- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`3`** belong to Team 1
+- **Seats&#x20;****`4`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`6`** belong to Team 2
 
 The only valid seat role slugs are `player` and `spectator`. The host is determined by the room's `HostUid`, not by a seat role.
 
@@ -126,7 +126,7 @@ A room normally moves through these states:
 lobby -> ticket -> battle
 ```
 
-Custom match tickets are placed immediately, so the ticket normally completes without waiting in the queue. The room model still exposes `battle`, but the final gameplay lifecycle depends on the Unity dedicated-host and player-sync integration.
+Custom match tickets are placed immediately, so the ticket normally completes without waiting in the queue. The room model still exposes `battle`, and the server automatically launches a supervised game worker to host the match when the room transitions to this state.
 
 ## Share the room ID
 
@@ -360,7 +360,7 @@ Each member selects a character independently, then changes their readiness stat
 
 ## Start the match
 
-The host starts a standard custom match with `POST /api/v1/band_match/start`. When `worker.enabled` is `true`, the server automatically spawns a dedicated game worker, waits for it to bind its UDP port, and only then publishes the game-start event. No manual host startup is required.
+The host starts a standard custom match with `POST /api/v1/band_match/start`. When `worker.enabled` is `true`, the server automatically spawns a dedicated game worker, waits for it to signal readiness, and then publishes the game-start event. No manual host startup is required.
 
 The match type for `/band_match/start` is `practice`. The related endpoint `/api/v1/band_match/start_practice_competitive` uses match type `competitive`.
 
@@ -372,9 +372,9 @@ The match type for `/band_match/start` is `practice`. The related endpoint `/api
   </Step>
 
   <Step title="Worker readiness check" title-type="p">
-    After the HTTP match-start response is flushed, the server waits for the worker to bind its UDP port. It polls the port every 500 milliseconds for up to 180 seconds using `WaitUntilListeningAsync()`.
+    The HTTP match-start response completes immediately so the client can process the game-start event. The server then waits for the worker to signal readiness by watching the worker's log for a `RosterReady` marker, which indicates the worker has loaded the map, prepared the roster, and is ready to accept player connections.
 
-    The `band_game_start` event is only published to room members after the worker's UDP port is confirmed listening. This prevents clients from attempting to connect before the game server is ready.
+    The `band_game_start` event is published to room members only after the worker reports readiness. This prevents clients from attempting to connect before the game server is ready.
   </Step>
 
   <Step title="Handle startup timeout" title-type="p">
@@ -501,13 +501,11 @@ The lobby sweeper releases abandoned rooms after the configured idle timeout. Th
 
   - Rooms do not support password protection.
   - Social, chat, and instant endpoints remain compatibility stubs and do not provide their complete product behavior.
-  - The `PrivateMatchBridge` is staged but is not wired into production gameplay.
-  - Gameplay still requires Unity dedicated-host and player-sync integration.
-  - The complete battle-finish and rewards flow has not been proven through custom matches.
+  - Players can enter the arena, move, and fight bots in custom matches, but the complete battle-finish and rewards flow has not been fully verified end-to-end.
   - The out-game WebSocket delivers room updates and game-start events, but it does not replace the remaining Unity gameplay synchronization layer.
 </Callout>
 
-The server can create and manage ten-seat rooms, persist seat flags, reconcile bots, allocate per-member tickets, and publish per-member game-start events. Completing a playable match still depends on the Unity host, player synchronization, battle completion, and rewards integrations.
+The server can create and manage ten-seat rooms, persist seat flags, reconcile bots, allocate per-member tickets, and publish per-member game-start events. Custom matches now enter a playable arena with working movement and bot combat. Match completion and reward persistence remain under verification.
 
 ## Next steps
 

@@ -64,9 +64,9 @@ The patcher maintains file backups and an undo journal so changes can be reverte
 
 <Card title="Dedicated-server worker" href="#runtime-components" icon="play-circle">
 
-The official `Smash_Legends.exe` executable, launched headlessly with `-batchmode -nographics -autoHost`.
+The official `Smash_Legends.exe` executable, launched headlessly with `-batchmode -nographics --private-session <session-file>`.
 
-The worker is automatically spawned by `MatchWorkerSupervisor` when a custom match starts and `worker.enabled` is `true`. The supervisor reserves a UDP port from `worker.portMin` through `worker.portMax` (normally `30000` through `30010`), starts the process, polls the port for readiness, and cleans up the process when the match stops or the worker exits unexpectedly. Per-match logs are written to `_work/logs/match-workers/`.
+The worker is automatically spawned by `MatchWorkerSupervisor` when a custom match starts and `worker.enabled` is `true`. The supervisor reserves a UDP port from `worker.portMin` through `worker.portMax` (normally `30000` through `30010`), starts the process, watches the worker log for a `RosterReady` readiness signal, and cleans up the process when the match stops or the worker exits unexpectedly. Per-match logs are written to `_work/logs/match-workers/`.
 
 </Card>
 
@@ -81,7 +81,7 @@ The client and backend coordinate setup and match allocation over HTTP. The clie
 3. The client authenticates through sign-up or sign-in and receives a JWT.
 4. The client loads `me/initial/full`, including characters, inventory, preferences, and other profile state.
 5. The client enters a lobby and creates or joins a band room.
-6. The client starts matchmaking. The server creates a ticket, allocates a match, and automatically spawns a dedicated-server worker via `MatchWorkerSupervisor.Spawn()` when `worker.enabled` is `true`. The server then polls the worker's UDP port every 500 ms for up to 180 seconds and only publishes `band_game_start` after the port is confirmed listening. If the worker fails to start within the timeout, the server terminates it and cancels the match.
+6. The client starts matchmaking. The server creates a ticket, allocates a match, and automatically spawns a dedicated-server worker via `MatchWorkerSupervisor.Spawn()` when `worker.enabled` is `true`. The HTTP match-start response completes immediately so the client can process the game-start event. The server then watches the worker's log for a `RosterReady` readiness signal and publishes `band_game_start` only after the worker confirms it has loaded the map and prepared the roster. If the worker fails to become ready within the startup timeout, the server terminates it and cancels the match.
 7. The client polls ticket and allocation endpoints until it receives the match IP address, UDP port, security key, and match ID.
 8. The client connects over UDP directly to the dedicated-server worker.
 9. The worker runs the match and reports match completion to the backend.
