@@ -70,6 +70,18 @@ The worker is automatically spawned by `MatchWorkerSupervisor` when a custom mat
 
 </Card>
 
+<Card title="Private match bridge" href="#runtime-components" icon="puzzle">
+
+A Mono.Cecil-based rewriter that injects a private-session boot path into the game assembly. When the dedicated-server worker is launched with `--private-session`, the bridge loads the configured map, prepares the human and bot roster, and handles player connections. The bridge also replaces the game's automatic login with an in-game account picker that supports local profiles and Steam.
+
+</Card>
+
+<Card title="Mock match host" href="#runtime-components" icon="cpu">
+
+An optional in-process match host activated by setting `matchHost.kind` to `mock` in `server-config.json`. Instead of spawning a dedicated-server worker, the server runs a simplified Capture Point simulation entirely in memory, communicating through a JSON-over-UDP protocol. The mock host does not support the official game client. It is designed for testing and automated clients.
+
+</Card>
+
 </Columns>
 
 ## Request flow
@@ -81,7 +93,7 @@ The client and backend coordinate setup and match allocation over HTTP. The clie
 3. The client authenticates through sign-up or sign-in and receives a JWT.
 4. The client loads `me/initial/full`, including characters, inventory, preferences, and other profile state.
 5. The client enters a lobby and creates or joins a band room.
-6. The client starts matchmaking. The server creates a ticket, allocates a match, and automatically spawns a dedicated-server worker via `MatchWorkerSupervisor.Spawn()` when `worker.enabled` is `true`. The HTTP match-start response completes immediately so the client can process the game-start event. The server then watches the worker's log for a `RosterReady` readiness signal and publishes `band_game_start` only after the worker confirms it has loaded the map and prepared the roster. If the worker fails to become ready within the startup timeout, the server terminates it and cancels the match.
+6. The client starts matchmaking. The server creates a ticket, allocates a match, and automatically spawns a dedicated-server worker via `MatchWorkerSupervisor.Spawn()` when `worker.enabled` is `true`. When `matchHost.kind` is set to `mock`, the server skips the worker spawn and uses the in-process mock host instead. The mock host is not compatible with the official game client. The HTTP match-start response completes immediately so the client can process the game-start event. The server then watches the worker's log for a `RosterReady` readiness signal and publishes `band_game_start` only after the worker confirms it has loaded the map and prepared the roster. If the worker fails to become ready within the startup timeout, the server terminates it and cancels the match.
 7. The client polls ticket and allocation endpoints until it receives the match IP address, UDP port, security key, and match ID.
 8. The client connects over UDP directly to the dedicated-server worker.
 9. The worker runs the match and reports match completion to the backend.

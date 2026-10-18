@@ -16,6 +16,7 @@ Use the band room system to create a private lobby, configure its arena and seat
   - A running server on port `18080`
   - Worker supervision enabled (`worker.enabled = true` in `server-config.json`)
   - A patched game client
+  - The private match bridge installed (run `install-private-match-bridge.ps1`)
   - An authenticated player account
   - At least two game clients for multiplayer testing
   - An authenticated out-game WebSocket connection using `user_uid` and `connectionToken`
@@ -37,10 +38,10 @@ The server still accepts the legacy numeric ordinals for compatibility, but resp
 
 Practice rooms expose ten one-based seats:
 
-- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`6`** have role `player`
-- **Seats&#x20;****`7`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`10`** have role `spectator`
-- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`3`** belong to Team 1
-- **Seats&#x20;****`4`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`6`** belong to Team 2
+- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`6`** have role `player`
+- **Seats&#x20;****`7`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`10`** have role `spectator`
+- **Seats&#x20;****`1`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`3`** belong to Team 1
+- **Seats&#x20;****`4`****&#x20;through \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*****`6`** belong to Team 2
 
 The only valid seat role slugs are `player` and `spectator`. The host is determined by the room's `HostUid`, not by a seat role.
 
@@ -364,6 +365,10 @@ The host starts a standard custom match with `POST /api/v1/band_match/start`. Wh
 
 The match type for `/band_match/start` is `practice`. The related endpoint `/api/v1/band_match/start_practice_competitive` uses match type `competitive`.
 
+<Callout kind="info" collapsed="false">
+  When `matchHost.kind` is set to `mock` in `server-config.json`, the server uses an in-process lightweight host instead of spawning a dedicated game worker. The mock host does not support the official game client. It uses a simplified JSON UDP protocol designed for testing and automated clients. For normal gameplay with the installed client, keep `matchHost.kind` set to `unity`.
+</Callout>
+
 <Steps>
   <Step title="Start matchmaking from the room" title-type="p">
     Send the start request as the host. The server validates that the room is startable, creates tickets for all room members against the same match allocation, and places them immediately.
@@ -501,9 +506,11 @@ The lobby sweeper releases abandoned rooms after the configured idle timeout. Th
 
   - Rooms do not support password protection.
   - Social, chat, and instant endpoints remain compatibility stubs and do not provide their complete product behavior.
-  - Players can enter the arena, move, and fight bots in custom matches, but the complete battle-finish and rewards flow has not been fully verified end-to-end.
+  - Character selection in the custom lobby now carries into private matches. Players can enter the arena, move, and fight bots as their selected character, but the complete battle-finish and rewards flow has not been fully verified end-to-end.
   - The out-game WebSocket delivers room updates and game-start events, but it does not replace the remaining Unity gameplay synchronization layer.
 </Callout>
+
+The patched client displays an in-game account picker before login. Users can select a saved local profile, create a new one with a 1–16 character nickname, or continue with Steam. Each local profile has a stable independent device ID. Dedicated match workers bypass the picker and sign in automatically.
 
 The server can create and manage ten-seat rooms, persist seat flags, reconcile bots, allocate per-member tickets, and publish per-member game-start events. Custom matches now enter a playable arena with working movement and bot combat. Match completion and reward persistence remain under verification.
 

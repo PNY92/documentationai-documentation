@@ -72,6 +72,35 @@ The server returns an empty bundle list by default.
 
 Relative paths are resolved against the configured content root.
 
+## Match host
+
+The `matchHost.kind` setting selects the implementation used to host new matches. With `unity`, the server spawns the dedicated game worker. With `mock`, the server uses an in-process lightweight host that communicates through a JSON-over-UDP protocol.
+
+<Callout kind="info">
+
+The mock host does not support the official SMASH LEGENDS client. It uses a simplified JSON UDP protocol designed for testing and automated clients. The official client requires the `unity` host.
+
+</Callout>
+
+```json
+{
+  "matchHost": {
+    "kind": "unity",
+    "mockPortMin": 31000,
+    "mockPortMax": 31009,
+    "mockTickHz": 30
+  }
+}
+```
+
+<ParamField body="matchHost.kind" param-type="string" required="false" enum="unity,mock" show-location="false">Selects the match host implementation for new matches. Default: `unity`. Existing matches retain their stored host kind.</ParamField>
+
+<ParamField body="matchHost.mockPortMin" param-type="integer" required="false" show-location="false">Start of the mock-host UDP port range. Default: `31000`.</ParamField>
+
+<ParamField body="matchHost.mockPortMax" param-type="integer" required="false" show-location="false">End of the mock-host UDP port range. Default: `31009`.</ParamField>
+
+<ParamField body="matchHost.mockTickHz" param-type="integer" required="false" show-location="false">Mock-host simulation tick frequency in Hz. Default: `30`.</ParamField>
+
 ## Access control
 
 <Callout kind="alert">

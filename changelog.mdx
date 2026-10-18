@@ -7,6 +7,24 @@ description: Track the development progress and milestones of the SMASH LEGENDS 
 
 The SMASH LEGENDS private server is an active project under development. This changelog tracks major milestones, verified features, and known limitations as the project evolves.
 
+<Update label="Selectable Match Hosts" description="Choose between Unity and mock match hosts, with a lightweight in-process simulation for testing" tags={["feature", "match-host", "mock", "configuration"]}>
+
+## Added
+
+- **Match host selection:** A new `matchHost.kind` setting in `server-config.json` selects the implementation used to host new matches. Set it to `unity` to spawn the dedicated game worker (default), or `mock` to use an in-process lightweight host.
+- **Mock match host:** The mock host runs a simplified Capture Point simulation entirely in-process, without launching the game executable. It communicates through a JSON-over-UDP protocol and supports movement, attacks, bots, capture zones, scoring, and match results.
+- **Mock host configuration:** Three settings control the mock host: `matchHost.mockPortMin` and `matchHost.mockPortMax` define the UDP port range, and `matchHost.mockTickHz` sets the simulation tick rate (default: 30 Hz).
+- **Mock API endpoints:** `POST /api/mock/allocate` creates a mock match with bots, and `POST /api/mock/stop?matchId=<match-id>` stops it. Both require standard JWT authentication.
+
+## Limitations
+
+- The mock host does not support the official SMASH LEGENDS client. The installed client uses the game's Forge networking protocol, while the mock host expects JSON UDP packets.
+- Mock matches require exactly two teams and three capture zones. Other configurations are rejected.
+- The mock simulation is simplified: it does not reproduce the installed game's map geometries, character abilities, or full gameplay behavior.
+- Existing matches retain their stored host kind. Changing `matchHost.kind` only affects new matches.
+
+</Update>
+
 <Update label="Auto-Host Custom Matches" description="Automatic worker spawning, readiness checks, and independent sessions" tags={["feature", "custom-matches", "worker", "authentication"]}>
 
 ## Added
@@ -92,6 +110,6 @@ The SMASH LEGENDS private server is an active project under development. This ch
 
 <Callout kind="info">
 
-The private match bridge resolves the earlier `GameBase` scene-transition blocker by injecting a private-session boot path that loads the map and prepares the roster directly. The remaining work for end-to-end verification is match result submission, reward persistence, and full two-client 3v3 completion.
+The private match bridge resolves the earlier `GameBase` scene-transition blocker by injecting a private-session boot path that loads the map and prepares the roster directly. The mock match host provides a lightweight in-process alternative for testing without the game executable. The remaining work for end-to-end verification is match result submission, reward persistence, and full two-client 3v3 completion.
 
 </Callout>

@@ -154,6 +154,24 @@ Smash_Legends.exe -batchmode -nographics -autoHost --port 30000 -logFile <path>
 
 The supervisor selects an available port from the configured range, starts the process, captures its log, and monitors its lifetime.
 
+### Match host selection
+
+The `matchHost` section in `server-config.json` selects which implementation hosts new matches. When `matchHost.kind` is `unity` (the default), the server spawns a dedicated game worker as described above. When set to `mock`, the server uses an in-process lightweight host instead.
+
+<Callout kind="info">
+
+The mock host does not support the official game client. It uses a simplified JSON-over-UDP protocol designed for testing and automated clients. The mock host requires exactly two teams and three capture zones.
+
+</Callout>
+
+<ParamField body="matchHost.kind" param-type="string" required="false" show-location="false" enum="unity,mock">Selects the match host implementation for new matches. Default: `unity`. Existing matches retain their stored host kind.</ParamField>
+
+<ParamField body="matchHost.mockPortMin" param-type="integer" required="false" show-location="false">Start of the mock-host UDP port range. Default: `31000`.</ParamField>
+
+<ParamField body="matchHost.mockPortMax" param-type="integer" required="false" show-location="false">End of the mock-host UDP port range. Default: `31009`.</ParamField>
+
+<ParamField body="matchHost.mockTickHz" param-type="integer" required="false" show-location="false">Mock-host simulation tick frequency in Hz. Default: `30`.</ParamField>
+
 ## Tutorial settings
 
 The default backend reports tutorial completion so a new player is not blocked at the Play tutorial.

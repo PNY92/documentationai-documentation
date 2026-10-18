@@ -160,9 +160,43 @@ The patcher maintains backups and an undo journal so you can restore the origina
 
 </Callout>
 
-## Step 5: Launch the server
+## Step 5: Install the private match bridge
 
-Start the HTTP backend before launching the patched game. The backend handles authentication, profiles, master data, matchmaking, lobbies, and match-worker supervision.
+The private match bridge enables playable custom matches by injecting a private-session boot path into the game assembly. It handles map loading, roster preparation, and player connections for dedicated-server workers.
+
+<Steps>
+<Step title="Install the bridge">
+
+Close the game before installing. From the repository root, run:
+
+```powershell
+dotnet restore _work/tools/PrivateMatchBridge/PrivateMatchBridge.csproj
+dotnet build src/SmashLegends.Patcher/SmashLegends.Patcher.csproj -c Release
+powershell -ExecutionPolicy Bypass -File scripts/install-private-match-bridge.ps1
+```
+
+The installer builds the bridge, rewrites a copy of the game assembly with Mono.Cecil, installs the patched `Assembly-CSharp.dll`, and copies `PrivateMatchBridge.dll` into the game's `Managed` directory.
+
+</Step>
+
+<Step title="Verify the installation">
+
+Confirm that `PrivateMatchBridge.dll` exists in the game's `Smash_Legends_Data/Managed/` directory. The installer records the bridge hash for verification.
+
+To revert the bridge installation, run:
+
+```powershell
+.\unpatch.ps1
+```
+
+This restores the original `Assembly-CSharp.dll` and removes the bridge.
+
+</Step>
+</Steps>
+
+## Step 6: Launch the server
+
+After installing the private match bridge, start the HTTP backend before launching the patched game. The backend handles authentication, profiles, master data, matchmaking, lobbies, and match-worker supervision.
 
 <Steps>
 <Step title="Start the HTTP backend">
@@ -196,14 +230,14 @@ Use the admin console to create accounts, manage players, inspect matches, chang
 </Step>
 </Steps>
 
-## Step 6: Connect the game client
+## Step 7: Connect the game client
 
 With the backend running and the game patched, launch the official client through Steam. The client reads `local-config.xml` and uses the private server endpoints instead of the production backend.
 
 <Steps>
 <Step title="Launch the patched game">
 
-Start SMASH LEGENDS from Steam. The patched client reads the local configuration and connects to the private server.
+Start SMASH LEGENDS from Steam. The patched client reads the local configuration and connects to the private server. The patched client displays an in-game account picker before login. Select a saved local profile, create a new one, or continue with Steam. Each profile has its own identity on the private server.
 
 </Step>
 
