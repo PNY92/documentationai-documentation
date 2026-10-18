@@ -39,11 +39,16 @@ Check these common causes:
 
 <Expandable title="Worker loads GameBase but match does not start">
 
-<Callout kind="alert">
+<Callout kind="info">
 
-This is the current main blocker. The worker loads the `GameBase` scene, but the scene transition bypasses the interactive startup ladder responsible for initializing the client's launch configuration. The worker reaches the scene but does not complete the full match initialization sequence.
+This issue was resolved by the private match bridge. The bridge injects a private-session boot path that loads the configured map and prepares the roster directly, bypassing the scene transition that previously blocked match initialization.
 
-This is a known limitation, not a configuration issue. A four-site IL fix was attempted to address it but caused a native crash, so it was not included in the shipped patch.
+If you still see this issue, verify that the private match bridge is installed:
+
+- Run `install-private-match-bridge.ps1` to install the bridge.
+- Confirm `PrivateMatchBridge.dll` exists in the game's `Managed` directory.
+- Check that the patched `Assembly-CSharp.dll` is in place.
+- Use `unpatch.ps1` to revert and then reinstall if the patch may be corrupted.
 
 </Callout>
 
@@ -95,6 +100,20 @@ If the supervisor cannot find the game executable, verify the worker configurati
 - Confirm that `worker.installDirectory` points to the correct Steam installation directory.
 - Verify that `worker.enabled` is `true`.
 - Check that the executable exists at the configured path.
+
+</Expandable>
+
+<Expandable title="Mock host match fails to start">
+
+When `matchHost.kind` is set to `mock`, the server uses an in-process host instead of spawning a game worker. If a mock match fails to start, check:
+
+- Confirm `matchHost.kind` is set to `mock` in `server-config.json`.
+- Verify that the mock host port range (`matchHost.mockPortMin` through `matchHost.mockPortMax`) is not already in use.
+- Check that the mock host tick rate (`matchHost.mockTickHz`) is set to a positive integer.
+- Mock matches require exactly two teams and three capture zones. Other configurations are rejected.
+- The official game client cannot connect to mock-hosted matches. Use a mock client that sends JSON UDP packets instead.
+
+Use `POST /api/mock/allocate` to create a mock match and `POST /api/mock/stop?matchId=<match-id>` to stop it.
 
 </Expandable>
 </ExpandableGroup>

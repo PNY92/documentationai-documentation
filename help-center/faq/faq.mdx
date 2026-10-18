@@ -89,4 +89,25 @@ The supervisor terminates stale or dead workers and releases their matches so th
 
 </Expandable>
 
+<Expandable title="Why does the game show an account picker before login?">
+
+The private match bridge replaces the game's automatic login with an in-game account picker. You can select a saved local profile, create a new one by entering a 1–16 character nickname, or continue with Steam.
+
+Each local profile has its own stable device ID, so multiple players on the same computer can maintain separate identities. Dedicated match workers bypass the picker and sign in automatically.
+
+Profiles are stored locally in `private-server-profiles.json` under the game's persistent data path. They contain names and device IDs, not passwords or authentication tokens.
+
+</Expandable>
+
+<Expandable title="What is the difference between Unity and mock match hosts?">
+
+The `matchHost.kind` setting in `server-config.json` selects the match host implementation:
+
+- **`unity`** (default): Spawns the dedicated game worker. The official game client can join matches. This is the standard mode for gameplay.
+- **`mock`**: Runs a lightweight in-process simulation without launching the game. The official client cannot connect. The mock host uses a JSON-over-UDP protocol designed for testing and automated clients.
+
+Mock matches require exactly two teams and three capture zones. The mock simulation supports movement, attacks, bots, capture zones, and scoring, but does not reproduce the full game's maps or character abilities.
+
+</Expandable>
+
 </ExpandableGroup>
